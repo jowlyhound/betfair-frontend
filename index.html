@@ -30,6 +30,19 @@
     .controls { display:flex; gap:8px; padding:10px 12px; align-items:center; border-bottom:1px solid #1b2533 }
     .btn { padding:8px 10px; border-radius:8px; border:1px solid #243246; background:#121c1f; color:#d9e6f7; cursor:pointer; font-size:13px;}
     .btn:hover { background:#0f1a2a; }
+    .btn.scanning { background:#2d5a2d; border-color:#4a7c59; color:#b8e6c1; }
+    .signal-item { padding:12px; border-radius:8px; margin-bottom:8px; border-left:4px solid; animation: slideIn 0.3s ease; }
+    .signal-steam { border-left-color:#f39c12; background:#2c1810; }
+    .signal-smart { border-left-color:#3498db; background:#1a2332; }
+    .signal-confidence { border-left-color:#2ecc71; background:#1e3025; }
+    .signal-whale { border-left-color:#e74c3c; background:#331a1a; }
+    .signal-late { border-left-color:#ff6b6b; background:#2d1b1b; }
+    .signal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .signal-type { font-size:11px; padding:2px 6px; border-radius:4px; text-transform:uppercase; font-weight:bold; }
+    .signal-conf { font-size:11px; opacity:0.8; }
+    .signal-desc { font-size:13px; margin-bottom:4px; }
+    .signal-meta { font-size:11px; opacity:0.7; }
+    @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     input, select { background:#0f1620; color:#d9e6f7; border:1px solid #243246; border-radius:8px; padding:8px 10px; font-size:13px; }
     .flex { display:flex; gap:8px; align-items:center; }
     .grow { flex:1; }
@@ -43,7 +56,11 @@
       <span class="tag">Live</span>
       <span class="tag">GB/IE · WIN</span>
     </div>
-    <div class="status" id="status">Disconnected</div>
+    <div class="flex">
+      <div class="status" id="status">Disconnected</div>
+      <div class="status" id="rate" style="margin-left:12px;"></div>
+      <button class="btn" id="scanButton" style="margin-left:12px;">🔍 Start Pattern Scanning</button>
+    </div>
   </header>
 
   <div class="wrap">
@@ -56,6 +73,14 @@
           <button class="btn" id="btn-refresh">Refresh</button>
         </div>
         <div class="list" id="market-list" role="listbox" aria-label="Markets"></div>
+      </section>
+
+      <!-- Signals Panel -->
+      <section class="card" id="signals-panel" style="display:none;">
+        <h3>🚨 Live Signals</h3>
+        <div style="padding:12px; max-height:400px; overflow-y:auto;" id="signals-list">
+          <!-- Signals will appear here -->
+        </div>
       </section>
 
       <!-- Market details -->
@@ -98,18 +123,231 @@
   </div>
 
   <script>
-    // =======================
-    // CONFIG
-    // =======================
-    const WS_URL = (typeof window !== "undefined" && window.ENV && window.ENV.WS_URL)
-      ? window.ENV.WS_URL
-      : "wss://betfair-c44j.onrender.com"; // your Render proxy
+    /*** --- CONFIG --- ***/
+    const WS_URL = "wss://betfair-c44j.onrender.com";
+    const REQUIRE_SUBSCRIBE = true;          // force a subscribe from the client
+    const MAX_MARKETS_TO_TRACK = 1;          // track the next-off market
 
-    // If your proxy requires an explicit subscribe, set this to true and implement sendSubscribe()
-    const REQUIRE_SUBSCRIBE = false;
+    /*** --- LIGHT STORE --- ***/
+    class BetfairStore {
+      constructor(){ this.markets=new Map(); this.listeners=new Set(); }
+      onSignal(fn){ this.listeners.add(fn); return ()=>this.listeners.delete(fn); }
+      emit(sig){ for(const fn of this.listeners) fn(sig); }
+      mkt(id){ if(!this.markets.has(id)) this.markets.set(id,{id,venue:'',name:'',startTime:null,runners:new Map()}); return this.markets.get(id); }
+      run(m, selId){
+        const r=m.runners.get(selId)||{id:selId,name:`#${selId}`,sort:999,hist:[],depth:[],lastSignalAt:0};
+        m.runners.set(selId,r); return r;
+      }
+      upsert(mc){
+        const id=mc.id||mc.marketId; if(!id) return;
+        const m=this.mkt(id);
+        if(mc.marketDefinition){
+          const md=mc.marketDefinition;
+          m.name=md.name||m.name; m.venue=md.venue||m.venue; m.startTime=md.marketTime||m.startTime;
+          (md.runners||[]).forEach(rr=>{ const r=this.run(m, rr.id); r.name=rr.name||r.name; r.sort=rr.sortPriority??r.sort; });
+        }
+        const now=Date.now();
+        (mc.rc||[]).forEach(rc=>{
+          const r=this.run(m, rc.id);
+          if(rc.ltp!=null){
+            r.hist.push({t:now, ltp: rc.ltp});
+            const cut=now-5*60*1000; while(r.hist.length && r.hist[0].t<cut) r.hist.shift();
+          }
+          let bb = r.depth.length? r.depth[r.depth.length-1].bbSize : 0;
+          let bl = r.depth.length? r.depth[r.depth.length-1].blSize : 0;
+          if(Array.isArray(rc.atb) && rc.atb[0]) bb = rc.atb[0][1];
+          if(Array.isArray(rc.atl) && rc.atl[0]) bl = rc.atl[0][1];
+          r.depth.push({t:now, bbSize:bb, blSize:bl});
+          const cut2=now-5*60*1000; while(r.depth.length && r.depth[0].t<cut2) r.depth.shift();
+
+          if(now - r.lastSignalAt > 8000){
+            const sig = detectSignals(m, r);
+            if(sig){ r.lastSignalAt=now; this.emit(sig); }
+          }
+        });
+      }
+    }
+
+    /*** --- ENHANCED DETECTORS --- ***/
+    function detectSignals(mkt, r){
+      const now=Date.now();
+      
+      // 1. STEAM MOVE: Sharp price drop (smart money entering)
+      const rec3m=r.hist.filter(h=> h.t>=now-180000);
+      if(rec3m.length>=3){
+        const start=rec3m[0].ltp, end=rec3m[rec3m.length-1].ltp;
+        const mid = rec3m[Math.floor(rec3m.length/2)].ltp;
+        if(start && end && mid && end<=start*0.85){
+          // Check if drop was consistent (not just a single spike)
+          const consistency = (start-end) / (start-mid + mid-end) * 2;
+          if(consistency > 0.7) {
+            return sig('STEAM_MOVE', r.name, mkt, 0.8, `Consistent price drop ${Math.round((1-end/start)*100)}% in 3m`);
+          }
+        }
+      }
+
+      // 2. SMART MONEY ENTRY: Large single back matched at good price
+      const rec30s=r.hist.filter(h=> h.t>=now-30000);
+      if(rec30s.length>=2){
+        const recent = rec30s.slice(-2);
+        const priceImprovement = (recent[0].ltp - recent[1].ltp) / recent[0].ltp;
+        if(priceImprovement > 0.05) { // 5% improvement
+          return sig('SMART_MONEY', r.name, mkt, 0.75, `Large back matched - price improved ${(priceImprovement*100).toFixed(1)}%`);
+        }
+      }
+
+      // 3. MARKET CONFIDENCE: Sustained backing with volume
+      const dep60s=r.depth.filter(d=> d.t>=now-60000);
+      if(dep60s.length>=3){
+        const backTrend = dep60s.slice(-3).every((d,i,arr) => i===0 || d.bbSize >= arr[i-1].bbSize);
+        const avgBack = dep60s.reduce((s,d)=>s+d.bbSize,0) / dep60s.length;
+        if(backTrend && avgBack > 100) {
+          return sig('MARKET_CONFIDENCE', r.name, mkt, 0.7, `Sustained backing trend - avg size ${avgBack.toFixed(0)}`);
+        }
+      }
+
+      // 4. WHALE ACTIVITY: Massive single-side volume
+      const dep10s=r.depth.filter(d=> d.t>=now-10000);
+      if(dep10s.length){
+        const last=dep10s[dep10s.length-1];
+        const ratio=(last.bbSize||0.0001)/(last.blSize||0.0001);
+        const totalVol = (last.bbSize||0) + (last.blSize||0);
+        if(ratio>=4 && totalVol>500) {
+          return sig('WHALE_ACTIVITY', r.name, mkt, 0.85, `Massive backing - ${ratio.toFixed(1)}× lay, £${totalVol.toFixed(0)} volume`);
+        }
+      }
+
+      // 5. LATE STEAM: Strong move close to race time (if we have race time)
+      if(mkt.startTime){
+        const raceTime = new Date(mkt.startTime).getTime();
+        const minsToRace = (raceTime - now) / (1000 * 60);
+        if(minsToRace > 0 && minsToRace < 10 && rec3m.length>=2){
+          const start=rec3m[0].ltp, end=rec3m[rec3m.length-1].ltp;
+          if(start && end && end<=start*0.9){
+            const urgency = Math.max(0.6, 1 - (minsToRace/10));
+            return sig('LATE_STEAM', r.name, mkt, urgency, `Late steam ${Math.round((1-end/start)*100)}% - ${minsToRace.toFixed(1)}m to race`);
+          }
+        }
+      }
+
+      return null;
+    }
+    function sig(type, name, mkt, conf, desc){
+      const t = mkt.startTime? new Date(mkt.startTime):null;
+      const hhmm = t? t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+      return { type, name, track: mkt.venue||'GB/IE', confidence: conf, description: desc, race: `${mkt.venue||'Course'} ${hhmm}` };
+    }
+
+    /*** --- WS CLIENT (very defensive) --- ***/
+    let ws, hbTimer, reconnectTimer, backoff=1000, firstSubscribeSent=false, framesSeen=0, firstFrame=null;
+    const store = new BetfairStore();
+
+    function wsConnect(){
+      setConn('Connecting…');
+      try { ws = new WebSocket(WS_URL); } catch(e){ setConn('WS error'); console.error(e); return; }
+
+      ws.onopen = () => {
+        setConn('Connected');
+        backoff=1000;
+        wsSend({type:'hello', client:'mobile-tracker', ts:Date.now()});
+        startHB();
+      };
+
+      ws.onmessage = (evt) => {
+        framesSeen++;
+        const payloads = normalizeFrames(evt.data);
+        for(const p of payloads){
+          const msg = safeParse(p);
+          if(!msg) continue;
+
+          if(!firstFrame){ firstFrame = msg; console.debug('[WS:first]', msg); }
+
+          const mcArr = extractMarketChanges(msg);
+          if(mcArr && mcArr.length){
+            console.debug(`[WS] Processing ${mcArr.length} market changes`);
+            mcArr.forEach(mc => store.upsert(mc));
+            if(REQUIRE_SUBSCRIBE) maybeAutoSubscribe();
+            console.debug(`[WS] Store now has ${store.markets.size} markets`);
+          }
+
+          const statusMsg = extractStatus(msg);
+          if(statusMsg){ setConn(statusMsg); }
+        }
+        // simple heartbeat UI
+        const el = document.getElementById('lastUpdate');
+        if(el) el.textContent = new Date().toLocaleTimeString();
+        
+        // Update rate display
+        const rate = document.getElementById('rate');
+        if(rate) rate.textContent = `${framesSeen} frames`;
+      };
+
+      ws.onclose = () => { setConn('Disconnected'); stopHB(); scheduleReconnect(); };
+      ws.onerror = (e) => { console.warn('WS error', e); };
+    }
+
+    function normalizeFrames(data){
+      // Handle: raw JSON, NDJSON, arrays, strings with logs
+      if(typeof data === 'string'){
+        // sometimes servers send multiple JSON lines
+        return data.split('\n').filter(Boolean);
+      }
+      return [data];
+    }
+    function safeParse(s){ try{ return typeof s==='string' ? JSON.parse(s) : s; } catch{ return null; } }
+    function wsSend(obj){ if(ws && ws.readyState===1) ws.send(JSON.stringify(obj)); }
+    function startHB(){ stopHB(); hbTimer=setInterval(()=>wsSend({type:'ping',ts:Date.now()}), 20000); }
+    function stopHB(){ clearInterval(hbTimer); }
+    function scheduleReconnect(){ clearTimeout(reconnectTimer); reconnectTimer=setTimeout(wsConnect, backoff); backoff=Math.min(backoff*1.7,15000); }
+
+    function extractMarketChanges(msg){
+      // unwrap common proxy envelopes: {op:'mcm', mc:[...]}, {mc:[...]}, {data:{...}}, {payload:{...}}, {mcm:{mc:[...]}}
+      let cur = msg;
+      for(let i=0;i<3;i++){
+        if(cur && cur.data) cur = cur.data; else if(cur && cur.payload) cur = cur.payload; else break;
+      }
+      if(cur && cur.mcm && Array.isArray(cur.mcm.mc)) return cur.mcm.mc;
+      if(cur && cur.op==='mcm' && Array.isArray(cur.mc)) return cur.mc;
+      if(cur && Array.isArray(cur.mc)) return cur.mc;
+      return null;
+    }
+    function extractStatus(msg){
+      const t = (msg && (msg.type||msg.level)) || '';
+      if(t==='status' || t==='info' || t==='error'){ return msg.message || t; }
+      return null;
+    }
+
+    function maybeAutoSubscribe(){
+      if(firstSubscribeSent) return;
+      // Choose earliest upcoming market we've seen definitions for
+      const withTime = Array.from(store.markets.values()).filter(m=>m.startTime);
+      if(!withTime.length) return;
+      const ids = withTime.sort((a,b)=>+new Date(a.startTime) - +new Date(b.startTime))
+                          .slice(0, MAX_MARKETS_TO_TRACK).map(m=>m.id);
+      if(!ids.length) return;
+      wsSend({
+        op: "marketSubscription",
+        id: 1,
+        marketFilter: { marketIds: ids },
+        priceProjection: { priceData: ["EX_BEST_OFFERS", "EX_LTP"] }
+      });
+      firstSubscribeSent = true;
+      console.debug('[WS] Sent marketSubscription for', ids);
+    }
+
+    function setConn(text){
+      const pulse=document.getElementById('connectionPulse');
+      const txt=document.getElementById('status');
+      if(txt) txt.textContent = text;
+      if(pulse) pulse.style.background = (text.includes('Connected')||text.includes('Live')) ? '#4CAF50' : '#FF7043';
+    }
+
+    // expose store for app
+    window.__BF_STORE__ = store;
+    window.__BF_WS_CONNECT__ = wsConnect;
 
     // =======================
-    // STATE
+    // STATE (legacy for UI compatibility)
     // =======================
     const state = {
       connected: false,
@@ -118,245 +356,34 @@
       lastMessage: null,
     };
 
-    // =======================
-    // WS CLIENT (with heartbeat + backoff)
-    // =======================
-    let ws, hbTimer, reconnectTimer, backoff = 1000;
-
-    function connect() {
-      setStatus('Connecting…');
-      ws = new WebSocket(WS_URL);
-
-      ws.onopen = () => {
-        state.connected = true;
-        setStatus('Connected');
-        backoff = 1000;
-        startHeartbeat();
-
-        // Optional: tell proxy we're a client (for logs)
-        safeSend({ type: "hello", client: "racing-tracker", ts: Date.now() });
-
-        // If proxy expects subscribe messages, send now:
-        if (REQUIRE_SUBSCRIBE) {
-          // Example: subscribe to markets (replace with real marketIds)
-          sendSubscribe(["1.23456789"]);
-        }
-      };
-
-      ws.onmessage = (evt) => {
-        try {
-          const msg = JSON.parse(evt.data);
-          state.lastMessage = msg;
-          handleMessage(msg);
-        } catch (e) {
-          // Some proxies send text logs, ignore JSON parse error
-        }
-      };
-
-      ws.onclose = () => {
-        state.connected = false;
-        setStatus('Disconnected — reconnecting…');
-        stopHeartbeat();
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        // Errors also trigger onclose; keep it minimal
-      };
-    }
-
-    function scheduleReconnect() {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(connect, backoff);
-      backoff = Math.min(backoff * 1.7, 15000);
-    }
-
-    function startHeartbeat() {
-      stopHeartbeat();
-      hbTimer = setInterval(() => {
-        safeSend({ type: "ping", ts: Date.now() });
-      }, 20000); // 20s
-    }
-    function stopHeartbeat() { clearInterval(hbTimer); }
-
-    function safeSend(obj) {
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify(obj));
-      }
-    }
-
-    // Example subscribe shape if your proxy forwards to Betfair:
-    function sendSubscribe(marketIds) {
-      // Two common patterns—uncomment the one your proxy expects:
-
-      // A) Plain proxy contract
-      // safeSend({ op: "subscribe", marketIds });
-
-      // B) Betfair streaming shape (MarketSubscription)
-      safeSend({
-        op: "marketSubscription",
-        id: 1,
-        marketFilter: { marketIds },
-        // priceProjection controls which prices come through; these are typical
-        priceProjection: { priceData: ["EX_BEST_OFFERS", "EX_LTP"] }
-      });
-    }
-
-    function setStatus(text) {
-      document.getElementById('status').textContent = text;
-    }
+    // On boot: restore last selected market
+    try {
+      const last = localStorage.getItem('lastMarketId');
+      if (last) state.currentMarketId = last;
+    } catch {}
 
     // =======================
-    // MESSAGE HANDLER
-    // =======================
-    function handleMessage(msg) {
-      // Show raw (last) message in debug
-      const dbg = document.getElementById('debug');
-      if (dbg) {
-        const trimmed = JSON.stringify(msg, null, 2);
-        dbg.textContent = trimmed.slice(0, 4000);
-      }
-
-      // Handle a few likely message shapes:
-      // 1) Proxy-level events
-      if (msg.type === "status" || msg.type === "info" || msg.type === "error") {
-        setStatus(msg.message || msg.type);
-        return;
-      }
-
-      // 2) Betfair Market Change Message (mcm)
-      // Spec: top-level { op: "mcm", mc: [ { id: marketId, rc: [ runner changes ], img: boolean, ... } ] }
-      if (msg.op === "mcm" && Array.isArray(msg.mc)) {
-        for (const marketChange of msg.mc) {
-          upsertMarketFromChange(marketChange);
-        }
-        renderMarketList();
-        if (state.currentMarketId) selectMarket(state.currentMarketId, false);
-        return;
-      }
-
-      // 3) Sometimes proxies forward plain { mc: [...] } without op
-      if (Array.isArray(msg.mc)) {
-        for (const marketChange of msg.mc) {
-          upsertMarketFromChange(marketChange);
-        }
-        renderMarketList();
-        if (state.currentMarketId) selectMarket(state.currentMarketId, false);
-        return;
-      }
-
-      // 4) Market catalogue snapshot (optional)
-      if (msg.type === "marketCatalogue" && Array.isArray(msg.items)) {
-        for (const it of msg.items) {
-          primeMarketCatalogue(it);
-        }
-        renderMarketList();
-        return;
-      }
-    }
-
-    // =======================
-    // UPDATERS (Betfair -> State)
-    // =======================
-    function primeMarketCatalogue(cat) {
-      // cat example: { marketId, marketName, event: { venue, openDate }, runners: [{ selectionId, runnerName, sortPriority }] }
-      const id = cat.marketId || cat.id;
-      if (!id) return;
-      if (!state.markets.has(id)) {
-        state.markets.set(id, {
-          id,
-          name: cat.marketName || 'WIN',
-          venue: cat.event?.venue || cat.eventName || '',
-          startTime: cat.event?.openDate || cat.openDate || null,
-          runners: new Map()
-        });
-      }
-      const m = state.markets.get(id);
-      if (Array.isArray(cat.runners)) {
-        for (const r of cat.runners) {
-          const rid = r.selectionId;
-          const existing = m.runners.get(rid) || {};
-          m.runners.set(rid, {
-            id: rid,
-            name: r.runnerName || existing.name || `#${rid}`,
-            sort: r.sortPriority ?? existing.sort ?? 999,
-            ltp: existing.ltp ?? null,
-            bestBack: existing.bestBack ?? null,
-            bestLay: existing.bestLay ?? null
-          });
-        }
-      }
-    }
-
-    function upsertMarketFromChange(mc) {
-      const id = mc.id || mc.marketId;
-      if (!id) return;
-
-      if (!state.markets.has(id)) {
-        state.markets.set(id, {
-          id,
-          name: mc.marketDefinition?.name || 'WIN',
-          venue: mc.marketDefinition?.venue || '',
-          startTime: mc.marketDefinition?.marketTime || null,
-          runners: new Map()
-        });
-      }
-      const m = state.markets.get(id);
-
-      // MarketDefinition updates (name/venue/time, runners)
-      if (mc.marketDefinition) {
-        m.name = mc.marketDefinition.name || m.name;
-        m.venue = mc.marketDefinition.venue || m.venue;
-        m.startTime = mc.marketDefinition.marketTime || m.startTime;
-        if (Array.isArray(mc.marketDefinition.runners)) {
-          for (const r of mc.marketDefinition.runners) {
-            const rid = r.id;
-            const existing = m.runners.get(rid) || {};
-            m.runners.set(rid, {
-              id: rid,
-              name: r.name || existing.name || `#${rid}`,
-              sort: r.sortPriority ?? existing.sort ?? 999,
-              ltp: existing.ltp ?? null,
-              bestBack: existing.bestBack ?? null,
-              bestLay: existing.bestLay ?? null
-            });
-          }
-        }
-      }
-
-      // Runner Changes (rc)
-      if (Array.isArray(mc.rc)) {
-        for (const rc of mc.rc) {
-          const rid = rc.id;
-          const r = m.runners.get(rid) || { id: rid, name: `#${rid}`, sort: 999 };
-          // LTP
-          if (rc.ltp !== undefined) r.ltp = rc.ltp;
-          // Best offers: atb/atl are ladders. Take level 0 as "best"
-          if (Array.isArray(rc.atb) && rc.atb.length > 0) {
-            r.bestBack = rc.atb[0][0]; // [price, size]
-          }
-          if (Array.isArray(rc.atl) && rc.atl.length > 0) {
-            r.bestLay = rc.atl[0][0];
-          }
-          m.runners.set(rid, r);
-        }
-      }
-    }
-
-    // =======================
-    // RENDER
+    // UI COMPATIBILITY FUNCTIONS
     // =======================
     function renderMarketList() {
       const q = document.getElementById('search').value?.trim().toLowerCase();
       const list = document.getElementById('market-list');
       list.innerHTML = '';
 
-      // Sort markets by start time ascending
-      const items = Array.from(state.markets.values()).sort((a, b) => {
+      // Get markets from new store
+      const store = window.__BF_STORE__;
+      if (!store || !store.markets) {
+        console.debug('[UI] Store not available yet');
+        return;
+      }
+      
+      const items = Array.from(store.markets.values()).sort((a, b) => {
         const ta = a.startTime ? +new Date(a.startTime) : Infinity;
         const tb = b.startTime ? +new Date(b.startTime) : Infinity;
         return ta - tb;
       });
+
+      console.debug(`[UI] Rendering ${items.length} markets`);
 
       for (const m of items) {
         const title = [m.venue, m.name].filter(Boolean).join(' · ');
@@ -387,18 +414,14 @@
 
     function selectMarket(marketId, focus) {
       state.currentMarketId = marketId;
-      const m = state.markets.get(marketId);
+      try { localStorage.setItem('lastMarketId', marketId); } catch {}
+      const m = window.__BF_STORE__.markets.get(marketId);
       if (!m) return;
 
       document.getElementById('market-title').textContent =
         [m.venue, m.name].filter(Boolean).join(' · ') || marketId;
 
       renderTable(m);
-
-      if (focus) {
-        // Optionally, request a targeted subscribe for this market (if your proxy supports it)
-        if (REQUIRE_SUBSCRIBE) sendSubscribe([marketId]);
-      }
     }
 
     function renderTable(market) {
@@ -419,16 +442,23 @@
         const ht = document.createElement('th'); ht.textContent = 'LTP'; thead.appendChild(ht);
       }
 
-      // Prepare runners
-      let runners = Array.from(market.runners.values());
+      // Prepare runners - get current depth for display
+      let runners = Array.from(market.runners.values()).map(r => {
+        const latestDepth = r.depth && r.depth.length ? r.depth[r.depth.length-1] : {};
+        const latestHist = r.hist && r.hist.length ? r.hist[r.hist.length-1] : {};
+        return {
+          ...r,
+          bestBack: latestDepth.bbSize > 0 ? 'Size:' + latestDepth.bbSize : '—',
+          bestLay: latestDepth.blSize > 0 ? 'Size:' + latestDepth.blSize : '—',
+          ltp: latestHist.ltp || '—'
+        };
+      });
 
       if (sortMode === 'fav') {
-        // Approx fav by min(bestBack, ltp) ascending
-        runners.sort((a, b) => (minPrice(a) - minPrice(b)));
+        runners.sort((a, b) => (a.sort - b.sort) || (a.id - b.id));
       } else if (sortMode === 'alpha') {
         runners.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       } else {
-        // by sort index (from marketDef) or selectionId
         runners.sort((a, b) => (a.sort - b.sort) || (a.id - b.id));
       }
 
@@ -444,44 +474,19 @@
         `;
         if (colsMode === 'best' || colsMode === 'both') {
           tr.innerHTML += `
-            <td class="price ${deltaClass(r, 'bestBack')}">${fmt(r.bestBack)}</td>
-            <td class="price ${deltaClass(r, 'bestLay')}">${fmt(r.bestLay)}</td>
+            <td class="price">${r.bestBack}</td>
+            <td class="price">${r.bestLay}</td>
           `;
         }
         if (colsMode === 'ltp' || colsMode === 'both') {
           tr.innerHTML += `
-            <td class="price ${deltaClass(r, 'ltp')}">${fmt(r.ltp)}</td>
+            <td class="price">${r.ltp}</td>
           `;
         }
         tbody.appendChild(tr);
       }
     }
 
-    // Simple delta colouring (green if improved for backers, red if worse)
-    const lastRenderCache = new WeakMap();
-    function deltaClass(r, key) {
-      const cache = lastRenderCache.get(r) || {};
-      const prev = cache[key];
-      const now = r[key];
-      cache[key] = now;
-      lastRenderCache.set(r, cache);
-      if (prev == null || now == null) return '';
-      if (key === 'bestBack' || key === 'ltp') {
-        return now > prev ? 'green' : (now < prev ? 'red' : '');
-      }
-      if (key === 'bestLay') {
-        return now < prev ? 'green' : (now > prev ? 'red' : '');
-      }
-      return '';
-    }
-
-    function minPrice(r) {
-      const cands = [r.ltp, r.bestBack].filter(x => typeof x === 'number');
-      return cands.length ? Math.min(...cands) : Number.POSITIVE_INFINITY;
-      // Note: using back/ltp as a rough "favness" proxy—good enough for UI ordering
-    }
-
-    function fmt(x) { return (x == null) ? '—' : Number(x).toFixed(2); }
     function escapeHtml(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
     // =======================
@@ -498,9 +503,153 @@
       renderMarketList();
       if (state.currentMarketId) selectMarket(state.currentMarketId, false);
     });
+    document.getElementById('scanButton').addEventListener('click', () => {
+      if (isScanning) {
+        stopScanning();
+      } else {
+        startScanning();
+      }
+    });
 
-    // Kick off
-    connect();
+    // =======================
+    // INITIALIZATION
+    // =======================
+    // connect WS + translate signals into your alerts
+    document.getElementById('status').textContent = 'Connecting…';
+    window.__BF_WS_CONNECT__();
+
+    // turn detector signals into your alert cards
+    window.__BF_STORE__.onSignal((sig)=>{
+      addAlert({
+        id: Date.now(),
+        name: sig.name,
+        track: sig.track,
+        patterns: [{ type: sig.type, description: sig.description, confidence: sig.confidence }],
+        confidence: sig.confidence,
+        timestamp: new Date(),
+        race: sig.race
+      });
+      const ct = document.getElementById('status');
+      if (ct) ct.textContent = 'Scanning Live';
+    });
+
+    // Auto-refresh market list when new data arrives
+    let lastMarketUpdate = 0;
+    setInterval(() => {
+      const store = window.__BF_STORE__;
+      if (store && store.markets.size > 0) {
+        const now = Date.now();
+        if (now - lastMarketUpdate > 2000) { // Update every 2 seconds
+          renderMarketList();
+          lastMarketUpdate = now;
+        }
+      }
+    }, 2000);
+
+    // Simple alert system (you can enhance this)
+    const alerts = [];
+    let isScanning = false;
+
+    function addAlert(alert) {
+      if (!isScanning) return; // Only add alerts when scanning is active
+      alerts.unshift(alert);
+      if (alerts.length > 50) alerts.pop(); // keep last 50
+      console.log('🚨 Signal detected:', alert);
+      
+      // Show signals panel if first alert
+      const panel = document.getElementById('signals-panel');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+      }
+      
+      // Add visual signal
+      addVisualSignal(alert);
+      
+      // Play notification sound (if enabled)
+      playNotificationSound(alert.confidence);
+      
+      // Show desktop notification (if permission granted)
+      if (Notification.permission === 'granted') {
+        new Notification(`🏇 ${alert.patterns[0].type}`, {
+          body: `${alert.name} - ${alert.patterns[0].description}`,
+          icon: '/favicon.ico',
+          tag: alert.id
+        });
+      }
+    }
+
+    function addVisualSignal(alert) {
+      const list = document.getElementById('signals-list');
+      const pattern = alert.patterns[0];
+      const confidence = Math.round(alert.confidence * 100);
+      
+      const signalClass = pattern.type.toLowerCase().replace('_', '-');
+      const timeStr = alert.timestamp.toLocaleTimeString();
+      
+      const div = document.createElement('div');
+      div.className = `signal-item signal-${signalClass}`;
+      div.innerHTML = `
+        <div class="signal-header">
+          <span class="signal-type">${pattern.type.replace('_', ' ')}</span>
+          <span class="signal-conf">${confidence}%</span>
+        </div>
+        <div class="signal-desc"><strong>${alert.name}</strong> - ${pattern.description}</div>
+        <div class="signal-meta">${alert.race} • ${timeStr}</div>
+      `;
+      
+      list.insertBefore(div, list.firstChild);
+      
+      // Keep only last 20 visual signals
+      while (list.children.length > 20) {
+        list.removeChild(list.lastChild);
+      }
+    }
+
+    function playNotificationSound(confidence) {
+      // Create audio context and play beep based on confidence
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        
+        // Higher confidence = higher pitch
+        osc.frequency.setValueAtTime(300 + (confidence * 400), ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.1);
+      } catch (e) {
+        // Audio not supported, fail silently
+      }
+    }
+
+    function startScanning() {
+      isScanning = true;
+      const btn = document.getElementById('scanButton');
+      btn.textContent = '⏹️ Stop Scanning';
+      btn.classList.add('scanning');
+      document.getElementById('status').textContent = 'Scanning Live';
+      
+      // Request notification permission
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      
+      // no timers; signals arrive via WebSocket/store
+    }
+
+    function stopScanning() {
+      isScanning = false;
+      const btn = document.getElementById('scanButton');
+      btn.textContent = '🔍 Start Pattern Scanning';
+      btn.classList.remove('scanning');
+      document.getElementById('status').textContent = 'Ready';
+    }
+
   </script>
 </body>
 </html>
