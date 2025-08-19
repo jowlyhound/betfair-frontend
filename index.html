@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Betfair Racing Tracker</title>
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body { margin: 0; background: #0b0f14; color: #e7eef7; }
+    header { padding: 16px 20px; border-bottom: 1px solid #1b2533; display:flex; align-items:center; justify-content:space-between;}
+    .tag { font-size:12px; padding:4px 8px; border-radius:999px; background:#13202f; border:1px solid #243246; margin-left:8px;}
+    .status { font-size:12px; opacity:.8 }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .grid { display:grid; grid-template-columns: 1.1fr 2fr; gap: 14px; align-items: start; }
+    .card { background:#0f1620; border:1px solid #1b2533; border-radius:14px; }
+    .card h3 { margin:0; padding:12px 14px; border-bottom:1px solid #1b2533; font-size:14px; letter-spacing:.3px; color:#bcd0ea; }
+    .list { max-height: 70vh; overflow:auto; }
+    .row { display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #13202f; cursor:pointer;}
+    .row:hover { background:#0c131c; }
+    .row .mkt { flex:1; }
+    .small { font-size:12px; opacity:.75 }
+    .pill { font-size:11px; padding:3px 6px; border-radius:6px; background:#121c29; border:1px solid #243246; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #13202f; font-size: 13px; }
+    th { text-align:left; color:#9fb7d5; position: sticky; top: 0; background:#0f1620; }
+    .price { font-variant-numeric: tabular-nums; }
+    .green { color:#8de29b; }
+    .red { color:#f19aa8; }
+    .muted { opacity:.65 }
+    .controls { display:flex; gap:8px; padding:10px 12px; align-items:center; border-bottom:1px solid #1b2533 }
+    .btn { padding:8px 10px; border-radius:8px; border:1px solid #243246; background:#121c1f; color:#d9e6f7; cursor:pointer; font-size:13px;}
+    .btn:hover { background:#0f1a2a; }
+    input, select { background:#0f1620; color:#d9e6f7; border:1px solid #243246; border-radius:8px; padding:8px 10px; font-size:13px; }
+    .flex { display:flex; gap:8px; align-items:center; }
+    .grow { flex:1; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="flex">
+      <h1 style="font-size:16px; margin:0;">Betfair Racing Tracker</h1>
+      <span class="tag">Live</span>
+      <span class="tag">GB/IE · WIN</span>
+    </div>
+    <div class="status" id="status">Disconnected</div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- Markets list -->
+      <section class="card">
+        <h3>Markets</h3>
+        <div class="controls">
+          <input id="search" class="grow" placeholder="Search course or off-time (e.g. 'Wolv' or '14:10')" />
+          <button class="btn" id="btn-refresh">Refresh</button>
+        </div>
+        <div class="list" id="market-list" role="listbox" aria-label="Markets"></div>
+      </section>
+
+      <!-- Market details -->
+      <section class="card">
+        <h3 id="market-title">Select a market…</h3>
+        <div class="controls">
+          <div class="flex">
+            <label class="muted">Sort:</label>
+            <select id="sort">
+              <option value="fav">By price (fav first)</option>
+              <option value="alpha">By runner name (A→Z)</option>
+              <option value="num">By runner #</option>
+            </select>
+          </div>
+          <div class="flex">
+            <label class="muted">Columns:</label>
+            <select id="cols">
+              <option value="best">Best Back/Lay</option>
+              <option value="ltp">Last Traded Price</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding:10px 12px;">
+          <table>
+            <thead>
+              <tr id="thead-row"></tr>
+            </thead>
+            <tbody id="runner-body"></tbody>
+          </table>
+        </div>
+        <div style="padding:10px 12px;">
+          <details>
+            <summary class="muted">Debug</summary>
+            <pre class="mono" id="debug" style="max-height:160px; overflow:auto;"></pre>
+          </details>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // =======================
+    // CONFIG
+    // =======================
+    const WS_URL = (typeof window !== "undefined" && window.ENV && window.ENV.WS_URL)
+      ? window.ENV.WS_URL
+      : "wss://betfair-c44j.onrender.com"; // your Render proxy
+
+    // If your proxy requires an explicit subscribe, set this to true and implement sendSubscribe()
+    const REQUIRE_SUBSCRIBE = false;
+
+    // =======================
+    // STATE
+    // =======================
+    const state = {
+      connected: false,
+      markets: new Map(), // marketId -> {id, name, venue, startTime, runners: Map(selectionId -> runnerObj)}
+      currentMarketId: null,
+      lastMessage: null,
+    };
+
+    // =======================
+    // WS CLIENT (with heartbeat + backoff)
+    // =======================
+    let ws, hbTimer, reconnectTimer, backoff = 1000;
+
+    function connect() {
+      setStatus('Connecting…');
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        state.connected = true;
+        setStatus('Connected');
+        backoff = 1000;
+        startHeartbeat();
+
+        // Optional: tell proxy we're a client (for logs)
+        safeSend({ type: "hello", client: "racing-tracker", ts: Date.now() });
+
+        // If proxy expects subscribe messages, send now:
+        if (REQUIRE_SUBSCRIBE) {
+          // Example: subscribe to markets (replace with real marketIds)
+          sendSubscribe(["1.23456789"]);
+        }
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          state.lastMessage = msg;
+          handleMessage(msg);
+        } catch (e) {
+          // Some proxies send text logs, ignore JSON parse error
+        }
+      };
+
+      ws.onclose = () => {
+        state.connected = false;
+        setStatus('Disconnected — reconnecting…');
+        stopHeartbeat();
+        scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        // Errors also trigger onclose; keep it minimal
+      };
+    }
+
+    function scheduleReconnect() {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(connect, backoff);
+      backoff = Math.min(backoff * 1.7, 15000);
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      hbTimer = setInterval(() => {
+        safeSend({ type: "ping", ts: Date.now() });
+      }, 20000); // 20s
+    }
+    function stopHeartbeat() { clearInterval(hbTimer); }
+
+    function safeSend(obj) {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify(obj));
+      }
+    }
+
+    // Example subscribe shape if your proxy forwards to Betfair:
+    function sendSubscribe(marketIds) {
+      // Two common patterns—uncomment the one your proxy expects:
+
+      // A) Plain proxy contract
+      // safeSend({ op: "subscribe", marketIds });
+
+      // B) Betfair streaming shape (MarketSubscription)
+      safeSend({
+        op: "marketSubscription",
+        id: 1,
+        marketFilter: { marketIds },
+        // priceProjection controls which prices come through; these are typical
+        priceProjection: { priceData: ["EX_BEST_OFFERS", "EX_LTP"] }
+      });
+    }
+
+    function setStatus(text) {
+      document.getElementById('status').textContent = text;
+    }
+
+    // =======================
+    // MESSAGE HANDLER
+    // =======================
+    function handleMessage(msg) {
+      // Show raw (last) message in debug
+      const dbg = document.getElementById('debug');
+      if (dbg) {
+        const trimmed = JSON.stringify(msg, null, 2);
+        dbg.textContent = trimmed.slice(0, 4000);
+      }
+
+      // Handle a few likely message shapes:
+      // 1) Proxy-level events
+      if (msg.type === "status" || msg.type === "info" || msg.type === "error") {
+        setStatus(msg.message || msg.type);
+        return;
+      }
+
+      // 2) Betfair Market Change Message (mcm)
+      // Spec: top-level { op: "mcm", mc: [ { id: marketId, rc: [ runner changes ], img: boolean, ... } ] }
+      if (msg.op === "mcm" && Array.isArray(msg.mc)) {
+        for (const marketChange of msg.mc) {
+          upsertMarketFromChange(marketChange);
+        }
+        renderMarketList();
+        if (state.currentMarketId) selectMarket(state.currentMarketId, false);
+        return;
+      }
+
+      // 3) Sometimes proxies forward plain { mc: [...] } without op
+      if (Array.isArray(msg.mc)) {
+        for (const marketChange of msg.mc) {
+          upsertMarketFromChange(marketChange);
+        }
+        renderMarketList();
+        if (state.currentMarketId) selectMarket(state.currentMarketId, false);
+        return;
+      }
+
+      // 4) Market catalogue snapshot (optional)
+      if (msg.type === "marketCatalogue" && Array.isArray(msg.items)) {
+        for (const it of msg.items) {
+          primeMarketCatalogue(it);
+        }
+        renderMarketList();
+        return;
+      }
+    }
+
+    // =======================
+    // UPDATERS (Betfair -> State)
+    // =======================
+    function primeMarketCatalogue(cat) {
+      // cat example: { marketId, marketName, event: { venue, openDate }, runners: [{ selectionId, runnerName, sortPriority }] }
+      const id = cat.marketId || cat.id;
+      if (!id) return;
+      if (!state.markets.has(id)) {
+        state.markets.set(id, {
+          id,
+          name: cat.marketName || 'WIN',
+          venue: cat.event?.venue || cat.eventName || '',
+          startTime: cat.event?.openDate || cat.openDate || null,
+          runners: new Map()
+        });
+      }
+      const m = state.markets.get(id);
+      if (Array.isArray(cat.runners)) {
+        for (const r of cat.runners) {
+          const rid = r.selectionId;
+          const existing = m.runners.get(rid) || {};
+          m.runners.set(rid, {
+            id: rid,
+            name: r.runnerName || existing.name || `#${rid}`,
+            sort: r.sortPriority ?? existing.sort ?? 999,
+            ltp: existing.ltp ?? null,
+            bestBack: existing.bestBack ?? null,
+            bestLay: existing.bestLay ?? null
+          });
+        }
+      }
+    }
+
+    function upsertMarketFromChange(mc) {
+      const id = mc.id || mc.marketId;
+      if (!id) return;
+
+      if (!state.markets.has(id)) {
+        state.markets.set(id, {
+          id,
+          name: mc.marketDefinition?.name || 'WIN',
+          venue: mc.marketDefinition?.venue || '',
+          startTime: mc.marketDefinition?.marketTime || null,
+          runners: new Map()
+        });
+      }
+      const m = state.markets.get(id);
+
+      // MarketDefinition updates (name/venue/time, runners)
+      if (mc.marketDefinition) {
+        m.name = mc.marketDefinition.name || m.name;
+        m.venue = mc.marketDefinition.venue || m.venue;
+        m.startTime = mc.marketDefinition.marketTime || m.startTime;
+        if (Array.isArray(mc.marketDefinition.runners)) {
+          for (const r of mc.marketDefinition.runners) {
+            const rid = r.id;
+            const existing = m.runners.get(rid) || {};
+            m.runners.set(rid, {
+              id: rid,
+              name: r.name || existing.name || `#${rid}`,
+              sort: r.sortPriority ?? existing.sort ?? 999,
+              ltp: existing.ltp ?? null,
+              bestBack: existing.bestBack ?? null,
+              bestLay: existing.bestLay ?? null
+            });
+          }
+        }
+      }
+
+      // Runner Changes (rc)
+      if (Array.isArray(mc.rc)) {
+        for (const rc of mc.rc) {
+          const rid = rc.id;
+          const r = m.runners.get(rid) || { id: rid, name: `#${rid}`, sort: 999 };
+          // LTP
+          if (rc.ltp !== undefined) r.ltp = rc.ltp;
+          // Best offers: atb/atl are ladders. Take level 0 as "best"
+          if (Array.isArray(rc.atb) && rc.atb.length > 0) {
+            r.bestBack = rc.atb[0][0]; // [price, size]
+          }
+          if (Array.isArray(rc.atl) && rc.atl.length > 0) {
+            r.bestLay = rc.atl[0][0];
+          }
+          m.runners.set(rid, r);
+        }
+      }
+    }
+
+    // =======================
+    // RENDER
+    // =======================
+    function renderMarketList() {
+      const q = document.getElementById('search').value?.trim().toLowerCase();
+      const list = document.getElementById('market-list');
+      list.innerHTML = '';
+
+      // Sort markets by start time ascending
+      const items = Array.from(state.markets.values()).sort((a, b) => {
+        const ta = a.startTime ? +new Date(a.startTime) : Infinity;
+        const tb = b.startTime ? +new Date(b.startTime) : Infinity;
+        return ta - tb;
+      });
+
+      for (const m of items) {
+        const title = [m.venue, m.name].filter(Boolean).join(' · ');
+        const time = m.startTime ? new Date(m.startTime) : null;
+        const off = time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+
+        // Filter
+        if (q) {
+          const hay = `${title} ${off}`.toLowerCase();
+          if (!hay.includes(q)) continue;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'row';
+        div.role = 'option';
+        div.dataset.id = m.id;
+        div.onclick = () => selectMarket(m.id, true);
+        div.innerHTML = `
+          <div class="mkt">
+            <div>${title || m.id}</div>
+            <div class="small muted">Off ${off}</div>
+          </div>
+          <div class="pill mono">${m.id}</div>
+        `;
+        list.appendChild(div);
+      }
+    }
+
+    function selectMarket(marketId, focus) {
+      state.currentMarketId = marketId;
+      const m = state.markets.get(marketId);
+      if (!m) return;
+
+      document.getElementById('market-title').textContent =
+        [m.venue, m.name].filter(Boolean).join(' · ') || marketId;
+
+      renderTable(m);
+
+      if (focus) {
+        // Optionally, request a targeted subscribe for this market (if your proxy supports it)
+        if (REQUIRE_SUBSCRIBE) sendSubscribe([marketId]);
+      }
+    }
+
+    function renderTable(market) {
+      const colsMode = document.getElementById('cols').value; // best | ltp | both
+      const sortMode = document.getElementById('sort').value; // fav | alpha | num
+
+      // Build header
+      const thead = document.getElementById('thead-row');
+      thead.innerHTML = '';
+      const h1 = document.createElement('th'); h1.textContent = '#'; thead.appendChild(h1);
+      const h2 = document.createElement('th'); h2.textContent = 'Runner'; thead.appendChild(h2);
+
+      if (colsMode === 'best' || colsMode === 'both') {
+        const hb = document.createElement('th'); hb.textContent = 'Best Back'; thead.appendChild(hb);
+        const hl = document.createElement('th'); hl.textContent = 'Best Lay'; thead.appendChild(hl);
+      }
+      if (colsMode === 'ltp' || colsMode === 'both') {
+        const ht = document.createElement('th'); ht.textContent = 'LTP'; thead.appendChild(ht);
+      }
+
+      // Prepare runners
+      let runners = Array.from(market.runners.values());
+
+      if (sortMode === 'fav') {
+        // Approx fav by min(bestBack, ltp) ascending
+        runners.sort((a, b) => (minPrice(a) - minPrice(b)));
+      } else if (sortMode === 'alpha') {
+        runners.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      } else {
+        // by sort index (from marketDef) or selectionId
+        runners.sort((a, b) => (a.sort - b.sort) || (a.id - b.id));
+      }
+
+      // Body
+      const tbody = document.getElementById('runner-body');
+      tbody.innerHTML = '';
+
+      for (const r of runners) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono muted">${r.sort ?? ''}</td>
+          <td>${escapeHtml(r.name || `#${r.id}`)}</td>
+        `;
+        if (colsMode === 'best' || colsMode === 'both') {
+          tr.innerHTML += `
+            <td class="price ${deltaClass(r, 'bestBack')}">${fmt(r.bestBack)}</td>
+            <td class="price ${deltaClass(r, 'bestLay')}">${fmt(r.bestLay)}</td>
+          `;
+        }
+        if (colsMode === 'ltp' || colsMode === 'both') {
+          tr.innerHTML += `
+            <td class="price ${deltaClass(r, 'ltp')}">${fmt(r.ltp)}</td>
+          `;
+        }
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Simple delta colouring (green if improved for backers, red if worse)
+    const lastRenderCache = new WeakMap();
+    function deltaClass(r, key) {
+      const cache = lastRenderCache.get(r) || {};
+      const prev = cache[key];
+      const now = r[key];
+      cache[key] = now;
+      lastRenderCache.set(r, cache);
+      if (prev == null || now == null) return '';
+      if (key === 'bestBack' || key === 'ltp') {
+        return now > prev ? 'green' : (now < prev ? 'red' : '');
+      }
+      if (key === 'bestLay') {
+        return now < prev ? 'green' : (now > prev ? 'red' : '');
+      }
+      return '';
+    }
+
+    function minPrice(r) {
+      const cands = [r.ltp, r.bestBack].filter(x => typeof x === 'number');
+      return cands.length ? Math.min(...cands) : Number.POSITIVE_INFINITY;
+      // Note: using back/ltp as a rough "favness" proxy—good enough for UI ordering
+    }
+
+    function fmt(x) { return (x == null) ? '—' : Number(x).toFixed(2); }
+    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    // =======================
+    // UI HOOKS
+    // =======================
+    document.getElementById('search').addEventListener('input', renderMarketList);
+    document.getElementById('cols').addEventListener('change', () => {
+      if (state.currentMarketId) selectMarket(state.currentMarketId, false);
+    });
+    document.getElementById('sort').addEventListener('change', () => {
+      if (state.currentMarketId) selectMarket(state.currentMarketId, false);
+    });
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      renderMarketList();
+      if (state.currentMarketId) selectMarket(state.currentMarketId, false);
+    });
+
+    // Kick off
+    connect();
+  </script>
+</body>
+</html>
