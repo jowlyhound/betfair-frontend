@@ -3,68 +3,173 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Betfair Racing Tracker</title>
+  <title>🏇 Betfair Racing Tracker - Live</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='18' font-size='18'>🏇</text></svg>" />
   <style>
-    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    body { margin: 0; background: #0b0f14; color: #e7eef7; }
-    header { padding: 16px 20px; border-bottom: 1px solid #1b2533; display:flex; align-items:center; justify-content:space-between;}
-    .tag { font-size:12px; padding:4px 8px; border-radius:999px; background:#13202f; border:1px solid #243246; margin-left:8px;}
-    .status { font-size:12px; opacity:.8 }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
-    .grid { display:grid; grid-template-columns: 1.1fr 2fr; gap: 14px; align-items: start; }
-    .card { background:#0f1620; border:1px solid #1b2533; border-radius:14px; }
-    .card h3 { margin:0; padding:12px 14px; border-bottom:1px solid #1b2533; font-size:14px; letter-spacing:.3px; color:#bcd0ea; }
-    .list { max-height: 70vh; overflow:auto; }
-    .row { display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #13202f; cursor:pointer;}
-    .row:hover { background:#0c131c; }
-    .row .mkt { flex:1; }
-    .small { font-size:12px; opacity:.75 }
-    .pill { font-size:11px; padding:3px 6px; border-radius:6px; background:#121c29; border:1px solid #243246; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #13202f; font-size: 13px; }
-    th { text-align:left; color:#9fb7d5; position: sticky; top: 0; background:#0f1620; }
-    .price { font-variant-numeric: tabular-nums; }
-    .green { color:#8de29b; }
-    .red { color:#f19aa8; }
-    .muted { opacity:.65 }
-    .controls { display:flex; gap:8px; padding:10px 12px; align-items:center; border-bottom:1px solid #1b2533 }
-    .btn { padding:8px 10px; border-radius:8px; border:1px solid #243246; background:#121c1f; color:#d9e6f7; cursor:pointer; font-size:13px;}
-    .btn:hover { background:#0f1a2a; }
-    .btn.scanning { background:#2d5a2d; border-color:#4a7c59; color:#b8e6c1; }
-    .signal-item { padding:12px; border-radius:8px; margin-bottom:8px; border-left:4px solid; animation: slideIn 0.3s ease; }
-    .signal-steam { border-left-color:#f39c12; background:#2c1810; }
-    .signal-smart { border-left-color:#3498db; background:#1a2332; }
-    .signal-confidence { border-left-color:#2ecc71; background:#1e3025; }
-    .signal-whale { border-left-color:#e74c3c; background:#331a1a; }
-    .signal-late { border-left-color:#ff6b6b; background:#2d1b1b; }
-    .signal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-    .signal-type { font-size:11px; padding:2px 6px; border-radius:4px; text-transform:uppercase; font-weight:bold; }
-    .signal-conf { font-size:11px; opacity:0.8; }
-    .signal-desc { font-size:13px; margin-bottom:4px; }
-    .signal-meta { font-size:11px; opacity:0.7; }
-    @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    input, select { background:#0f1620; color:#d9e6f7; border:1px solid #243246; border-radius:8px; padding:8px 10px; font-size:13px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: white; min-height: 100vh; padding: 15px;
+    }
+    .header { text-align: center; padding: 20px; background: rgba(0,0,0,0.3); 
+      border-radius: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
+    .live-badge { background: #FF5722; padding: 4px 8px; border-radius: 10px; 
+      font-size: 11px; font-weight: bold; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
+    .stat { text-align: center; padding: 15px; background: rgba(255,255,255,0.15); 
+      border-radius: 15px; backdrop-filter: blur(10px); }
+    .stat-value { font-size: 22px; font-weight: bold; color: #FFD700; }
+    .stat-label { font-size: 10px; opacity: 0.8; text-transform: uppercase; margin-top: 5px; }
+    .controls { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; 
+      margin-bottom: 20px; backdrop-filter: blur(10px); text-align: center; }
+    .start-btn { padding: 15px 30px; background: linear-gradient(135deg, #4CAF50, #45a049);
+      border: none; border-radius: 15px; color: white; font-size: 16px; font-weight: bold;
+      cursor: pointer; margin: 10px; transition: all 0.3s; }
+    .start-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(76,175,80,0.4); }
+    .start-btn.active { background: linear-gradient(135deg, #FF6B6B, #FF8E53); animation: glow 2s infinite; }
+    .start-btn.scanning { background: linear-gradient(135deg, #FF6B6B, #FF8E53); animation: glow 2s infinite; }
+    @keyframes glow { 0%, 100% { box-shadow: 0 4px 20px rgba(255,107,107,0.4); } 50% { box-shadow: 0 4px 30px rgba(255,107,107,0.6); } }
+    .market-card { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; 
+      margin: 15px 0; backdrop-filter: blur(10px); }
+    .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .market-name { font-weight: bold; font-size: 18px; }
+    .market-info { font-size: 12px; opacity: 0.8; }
+    .market-list { margin-top: 10px; }
+    .market-item { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; 
+      margin: 8px 0; display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer; transition: all 0.2s; }
+    .market-item:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
+    .market-item.analyzing { background: linear-gradient(45deg, rgba(76,175,80,0.3), rgba(76,175,80,0.1)); 
+      animation: analyze 1s infinite; }
+    @keyframes analyze { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
+    .market-time { font-weight: bold; color: #FFD700; }
+    .market-name-text { flex: 1; margin: 0 10px; font-size: 14px; }
+    .runner-count { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 8px; 
+      font-size: 12px; }
+    .pattern-alerts { margin-top: 20px; }
+    .signal-item { background: rgba(255,255,255,0.15); margin: 10px 0; padding: 15px; 
+      border-radius: 15px; backdrop-filter: blur(15px); border-left: 4px solid #4CAF50;
+      animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .signal-item.signal-steam { border-left-color: #f39c12; }
+    .signal-item.signal-smart { border-left-color: #3498db; }
+    .signal-item.signal-confidence { border-left-color: #2ecc71; }
+    .signal-item.signal-whale { border-left-color: #e74c3c; }
+    .signal-item.signal-late { border-left-color: #FF6B6B; }
+    .signal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .signal-conf { background: rgba(255,255,255,0.3); padding: 4px 10px; border-radius: 12px; 
+      font-size: 12px; font-weight: bold; }
+    .signal-type { display: inline-block; background: rgba(255,255,255,0.25); padding: 3px 8px; 
+      border-radius: 10px; font-size: 10px; margin: 2px; text-transform: uppercase; }
+    .signal-desc { font-size: 13px; margin-bottom: 4px; }
+    .signal-meta { font-size: 11px; opacity: 0.7; }
+    .status { background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.5); 
+      padding: 12px; border-radius: 10px; margin: 10px 0; font-size: 14px; text-align: center; }
+    .status.warning { background: rgba(255,193,7,0.2); border-color: rgba(255,193,7,0.5); }
+    .status.info { background: rgba(33,150,243,0.2); border-color: rgba(33,150,243,0.5); }
+    input, select { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); 
+      border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+    input::placeholder { color: rgba(255,255,255,0.5); }
     .flex { display:flex; gap:8px; align-items:center; }
     .grow { flex:1; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
+    .btn { padding: 8px 15px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); 
+      border-radius: 8px; color: white; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+    .btn:hover { background: rgba(255,255,255,0.2); }
+    table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
+    th { text-align: left; background: rgba(255,255,255,0.1); font-weight: bold; }
+    .price { font-variant-numeric: tabular-nums; }
+    .muted { opacity: 0.7; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="flex">
-      <h1 style="font-size:16px; margin:0;">Betfair Racing Tracker</h1>
-      <span class="tag">Live</span>
-      <span class="tag">GB/IE · WIN</span>
+  <div class="header">
+    <h1>🏇 Betfair Racing Tracker</h1>
+    <div style="margin-top: 10px; font-size: 14px;">
+      <span class="live-badge">LIVE</span>
+      <span style="margin-left: 10px;" id="connection-status">Connected</span>
     </div>
-    <div class="flex">
-      <div class="status" id="status">Disconnected</div>
-      <div class="status" id="rate" style="margin-left:12px;"></div>
-      <button class="btn" id="scanButton" style="margin-left:12px;">🔍 Start Pattern Scanning</button>
-    </div>
-  </header>
+  </div>
 
-  <div class="wrap">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="totalMarkets">0</div>
+      <div class="stat-label">Markets</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="totalRunners">0</div>
+      <div class="stat-label">Runners</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="patternsFound">0</div>
+      <div class="stat-label">Patterns</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="frameCount">0</div>
+      <div class="stat-label">Data Frames</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div style="margin-bottom: 15px;">
+      🔍 <strong>Live Pattern Detection</strong> - Scanning Betfair exchange for betting opportunities
+    </div>
+    <button class="start-btn" id="scanButton">🚀 Start Pattern Scanning</button>
+    <button class="start-btn" id="btn-refresh">🔄 Refresh Market Data</button>
+  </div>
+
+  <div class="status" id="status">📡 Connecting to Betfair stream...</div>
+
+  <div class="market-card">
+    <div class="market-header">
+      <div class="market-name">🏁 Available Markets</div>
+      <div class="market-info">
+        <input id="search" class="grow" placeholder="Search course or off-time (e.g. 'Wolv' or '14:10')" style="width: 300px;" />
+      </div>
+    </div>
+    <div class="market-list" id="market-list" role="listbox" aria-label="Markets"></div>
+  </div>
+
+  <div class="market-card">
+    <div class="market-header">
+      <div class="market-name" id="market-title">Select a market…</div>
+      <div class="market-info">
+        <div class="flex">
+          <select id="sort">
+            <option value="fav">By price (fav first)</option>
+            <option value="alpha">By runner name (A→Z)</option>
+            <option value="num">By runner #</option>
+          </select>
+          <select id="cols" style="margin-left: 10px;">
+            <option value="best">Best Back/Lay</option>
+            <option value="ltp">Last Traded Price</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="padding: 10px;">
+      <table>
+        <thead>
+          <tr id="thead-row"></tr>
+        </thead>
+        <tbody id="runner-body"></tbody>
+      </table>
+    </div>
+    <div style="padding: 10px;">
+      <details>
+        <summary class="muted">Debug</summary>
+        <pre class="mono" id="debug" style="max-height:160px; overflow:auto;"></pre>
+      </details>
+    </div>
+  </div>
+
+  <div id="patternAlerts" class="pattern-alerts"></div>
+
+  <div class="wrap" style="display: none;">
     <div class="grid">
       <!-- Markets list -->
       <section class="card">
@@ -278,9 +383,18 @@
         const el = document.getElementById('lastUpdate');
         if(el) el.textContent = new Date().toLocaleTimeString();
         
-        // Update rate display
-        const rate = document.getElementById('rate');
-        if(rate) rate.textContent = `${framesSeen} frames`;
+        // Update stats display
+        const frameCount = document.getElementById('frameCount');
+        const totalMarkets = document.getElementById('totalMarkets');
+        const totalRunners = document.getElementById('totalRunners');
+        
+        if(frameCount) frameCount.textContent = framesSeen;
+        if(totalMarkets) totalMarkets.textContent = store.markets.size;
+        if(totalRunners) {
+          let runnerCount = 0;
+          store.markets.forEach(m => runnerCount += m.runners.size);
+          totalRunners.textContent = runnerCount;
+        }
       };
 
       ws.onclose = () => { setConn('Disconnected'); stopHB(); scheduleReconnect(); };
@@ -339,7 +453,22 @@
     function setConn(text){
       const pulse=document.getElementById('connectionPulse');
       const txt=document.getElementById('status');
-      if(txt) txt.textContent = text;
+      const connStatus=document.getElementById('connection-status');
+      
+      if(txt) {
+        if(text.includes('Connected') || text.includes('Live')) {
+          txt.textContent = '✅ Live data stream active';
+          txt.className = 'status';
+        } else if(text.includes('Connecting')) {
+          txt.textContent = '📡 Connecting to Betfair stream...';
+          txt.className = 'status info';
+        } else {
+          txt.textContent = '❌ ' + text;
+          txt.className = 'status warning';
+        }
+      }
+      
+      if(connStatus) connStatus.textContent = text;
       if(pulse) pulse.style.background = (text.includes('Connected')||text.includes('Live')) ? '#4CAF50' : '#FF7043';
     }
 
@@ -390,6 +519,7 @@
         const title = [m.venue, m.name].filter(Boolean).join(' · ');
         const time = m.startTime ? new Date(m.startTime) : null;
         const off = time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+        const runnerCount = m.runners ? m.runners.size : 0;
 
         // Filter
         if (q) {
@@ -398,16 +528,14 @@
         }
 
         const div = document.createElement('div');
-        div.className = 'row';
+        div.className = 'market-item';
         div.role = 'option';
         div.dataset.id = m.id;
         div.onclick = () => selectMarket(m.id, true);
         div.innerHTML = `
-          <div class="mkt">
-            <div>${title || m.id}</div>
-            <div class="small muted">Off ${off}</div>
-          </div>
-          <div class="pill mono">${m.id}</div>
+          <div class="market-time">${off}</div>
+          <div class="market-name-text">${title || m.id}</div>
+          <div class="runner-count">${runnerCount} runners</div>
         `;
         list.appendChild(div);
       }
@@ -531,7 +659,14 @@
         race: sig.race
       });
       const ct = document.getElementById('status');
-      if (ct) ct.textContent = 'Scanning Live';
+      if (ct) {
+        ct.textContent = '🚨 Pattern detected - Scanning Live';
+        ct.className = 'status';
+      }
+      
+      // Update pattern count
+      const patternsFound = document.getElementById('patternsFound');
+      if (patternsFound) patternsFound.textContent = alerts.length;
     });
 
     // Auto-refresh market list when new data arrives
@@ -557,11 +692,7 @@
       if (alerts.length > 50) alerts.pop(); // keep last 50
       console.log('🚨 Signal detected:', alert);
       
-      // Show signals panel if first alert
-      const panel = document.getElementById('signals-panel');
-      if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-      }
+      // Pattern alerts are now shown in main view
       
       // Add visual signal
       addVisualSignal(alert);
@@ -580,29 +711,38 @@
     }
 
     function addVisualSignal(alert) {
-      const list = document.getElementById('signals-list');
+      const container = document.getElementById('patternAlerts');
       const pattern = alert.patterns[0];
       const confidence = Math.round(alert.confidence * 100);
       
       const signalClass = pattern.type.toLowerCase().replace('_', '-');
       const timeStr = alert.timestamp.toLocaleTimeString();
       
+      // Create alerts container if it doesn't exist
+      if (!container.innerHTML.includes('Live Pattern Alerts')) {
+        container.innerHTML = '<h3 style="margin-bottom: 15px; text-align: center;">🚨 Live Pattern Alerts</h3>';
+      }
+      
       const div = document.createElement('div');
       div.className = `signal-item signal-${signalClass}`;
       div.innerHTML = `
         <div class="signal-header">
-          <span class="signal-type">${pattern.type.replace('_', ' ')}</span>
-          <span class="signal-conf">${confidence}%</span>
+          <div style="font-weight: bold;">🏁 ${alert.race}</div>
+          <div class="signal-conf">${confidence}%</div>
         </div>
         <div class="signal-desc"><strong>${alert.name}</strong> - ${pattern.description}</div>
-        <div class="signal-meta">${alert.race} • ${timeStr}</div>
+        <div style="margin: 8px 0;">
+          <span class="signal-type">${pattern.type.replace('_', ' ')}</span>
+        </div>
+        <div class="signal-meta">${timeStr}</div>
       `;
       
-      list.insertBefore(div, list.firstChild);
+      container.appendChild(div);
       
-      // Keep only last 20 visual signals
-      while (list.children.length > 20) {
-        list.removeChild(list.lastChild);
+      // Keep only last 15 visual signals
+      const signals = container.querySelectorAll('.signal-item');
+      while (signals.length > 15) {
+        signals[0].remove();
       }
     }
 

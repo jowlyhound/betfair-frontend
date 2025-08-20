@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - Betfair Tracker</title>
+    <style>
+        body { font-family: monospace; background: #222; color: #fff; padding: 20px; }
+        .status { margin: 10px 0; padding: 10px; border: 1px solid #555; }
+        .error { border-color: #f44; background: #433; }
+        .success { border-color: #4f4; background: #343; }
+        .warning { border-color: #ff4; background: #443; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Betfair Tracker Debug</h1>
+    <div id="log"></div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'status') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            log.appendChild(div);
+            console.log(message);
+        }
+
+        addLog('🚀 Debug page loaded');
+        addLog('🔌 Testing WebSocket connection...');
+
+        try {
+            const ws = new WebSocket('wss://betfair-c44j.onrender.com');
+            
+            ws.onopen = () => {
+                addLog('✅ WebSocket connected successfully!', 'success');
+                ws.send(JSON.stringify({ type: 'hello', client: 'debug-test' }));
+            };
+            
+            ws.onmessage = (event) => {
+                addLog(`📨 Received: ${event.data.substring(0, 200)}...`, 'success');
+            };
+            
+            ws.onclose = () => {
+                addLog('❌ WebSocket connection closed', 'error');
+            };
+            
+            ws.onerror = (error) => {
+                addLog(`🚨 WebSocket error: ${error}`, 'error');
+            };
+            
+        } catch (error) {
+            addLog(`💥 Failed to create WebSocket: ${error}`, 'error');
+        }
+
+        // Test basic JavaScript
+        addLog('🧪 Testing JavaScript basics...');
+        try {
+            const testMap = new Map();
+            testMap.set('test', 'value');
+            addLog('✅ Map() works', 'success');
+        } catch (e) {
+            addLog(`❌ Map() failed: ${e}`, 'error');
+        }
+
+        // Test if DOM is ready
+        addLog('📄 DOM ready, all tests complete');
+    </script>
+</body>
+</html>
