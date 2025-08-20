@@ -643,9 +643,19 @@
     // =======================
     // INITIALIZATION
     // =======================
-    // connect WS + translate signals into your alerts
-    document.getElementById('status').textContent = 'Connecting…';
+    // connect WS for real Betfair data
+    document.getElementById('status').textContent = 'Connecting to Betfair delayed feed...';
     window.__BF_WS_CONNECT__();
+    
+    // Update connection status display
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-GB', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    document.getElementById('connection-status').textContent = `${todayStr} - Betfair Delayed Feed`;
 
     // turn detector signals into your alert cards
     window.__BF_STORE__.onSignal((sig)=>{
@@ -668,6 +678,9 @@
       const patternsFound = document.getElementById('patternsFound');
       if (patternsFound) patternsFound.textContent = alerts.length;
     });
+
+    // Real Betfair data will be populated via WebSocket connection
+    // The existing WebSocket client will handle market data from Betfair's delayed feed
 
     // Auto-refresh market list when new data arrives
     let lastMarketUpdate = 0;
@@ -771,17 +784,20 @@
     function startScanning() {
       isScanning = true;
       const btn = document.getElementById('scanButton');
-      btn.textContent = '⏹️ Stop Scanning';
+      btn.textContent = '⏹️ Stop Pattern Scanning';
       btn.classList.add('scanning');
-      document.getElementById('status').textContent = 'Scanning Live';
+      document.getElementById('status').textContent = '🔍 Analyzing live racing patterns...';
       
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission();
       }
       
-      // no timers; signals arrive via WebSocket/store
+      // Pattern detection will run on real Betfair data as it arrives via WebSocket
     }
+
+    // Pattern detection now runs automatically on real Betfair data via the existing detectSignals() function
+    // which is called in the BetfairStore.upsert() method when new market data arrives
 
     function stopScanning() {
       isScanning = false;
