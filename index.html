@@ -230,7 +230,7 @@
 
   <script>
     /*** --- CONFIG --- ***/
-    const WS_URL = "wss://betfair-c44j.onrender.com";
+    const WS_URL = "wss://overcome-spies-ferry-laptops.trycloudflare.com";
     const REQUIRE_SUBSCRIBE = true;          // force a subscribe from the client
     const MAX_MARKETS_TO_TRACK = 1;          // track the next-off market
 
@@ -355,30 +355,58 @@
       ws.onopen = () => {
         setConn('Connected');
         backoff=1000;
+        console.log('[WS:CONNECTED] Sending hello message...');
         wsSend({type:'hello', client:'mobile-tracker', ts:Date.now()});
+        
+        // Also try requesting market data directly
+        console.log('[WS:REQUESTING] Requesting market data...');
+        wsSend({type:'getMarkets', client:'mobile-tracker'});
+        wsSend({op:'listMarketCatalogue', filter:{eventTypeIds:['7'], marketCountries:['GB','IE']}});
+        
         startHB();
       };
 
       ws.onmessage = (evt) => {
         framesSeen++;
+        
+        // Enhanced debugging - log all raw messages
+        console.log('[WS:RAW]', evt.data);
+        
         const payloads = normalizeFrames(evt.data);
         for(const p of payloads){
           const msg = safeParse(p);
-          if(!msg) continue;
+          if(!msg) {
+            console.warn('[WS:PARSE_FAILED]', p);
+            continue;
+          }
 
-          if(!firstFrame){ firstFrame = msg; console.debug('[WS:first]', msg); }
+          console.log('[WS:PARSED]', msg);
+
+          if(!firstFrame){ 
+            firstFrame = msg; 
+            console.debug('[WS:FIRST_FRAME]', msg); 
+          }
 
           const mcArr = extractMarketChanges(msg);
           if(mcArr && mcArr.length){
-            console.debug(`[WS] Processing ${mcArr.length} market changes`);
-            mcArr.forEach(mc => store.upsert(mc));
+            console.debug(`[WS:MARKET_CHANGES] Processing ${mcArr.length} market changes:`, mcArr);
+            mcArr.forEach(mc => {
+              console.log('[WS:UPSERTING_MARKET]', mc);
+              store.upsert(mc);
+            });
             if(REQUIRE_SUBSCRIBE) maybeAutoSubscribe();
-            console.debug(`[WS] Store now has ${store.markets.size} markets`);
+            console.debug(`[WS:STORE_SIZE] Store now has ${store.markets.size} markets`);
+          } else {
+            console.log('[WS:NO_MARKET_CHANGES] Message structure:', Object.keys(msg));
           }
 
           const statusMsg = extractStatus(msg);
-          if(statusMsg){ setConn(statusMsg); }
+          if(statusMsg){ 
+            console.log('[WS:STATUS_MSG]', statusMsg);
+            setConn(statusMsg); 
+          }
         }
+        
         // simple heartbeat UI
         const el = document.getElementById('lastUpdate');
         if(el) el.textContent = new Date().toLocaleTimeString();
@@ -394,6 +422,11 @@
           let runnerCount = 0;
           store.markets.forEach(m => runnerCount += m.runners.size);
           totalRunners.textContent = runnerCount;
+        }
+        
+        // Force UI refresh when we get new data
+        if(store.markets.size > 0) {
+          renderMarketList();
         }
       };
 
@@ -417,13 +450,41 @@
 
     function extractMarketChanges(msg){
       // unwrap common proxy envelopes: {op:'mcm', mc:[...]}, {mc:[...]}, {data:{...}}, {payload:{...}}, {mcm:{mc:[...]}}
+      console.log('[EXTRACT] Input message:', msg);
+      
       let cur = msg;
       for(let i=0;i<3;i++){
-        if(cur && cur.data) cur = cur.data; else if(cur && cur.payload) cur = cur.payload; else break;
+        if(cur && cur.data) {
+          console.log('[EXTRACT] Unwrapping .data layer');
+          cur = cur.data; 
+        } else if(cur && cur.payload) {
+          console.log('[EXTRACT] Unwrapping .payload layer');
+          cur = cur.payload; 
+        } else break;
       }
-      if(cur && cur.mcm && Array.isArray(cur.mcm.mc)) return cur.mcm.mc;
-      if(cur && cur.op==='mcm' && Array.isArray(cur.mc)) return cur.mc;
-      if(cur && Array.isArray(cur.mc)) return cur.mc;
+      
+      console.log('[EXTRACT] After unwrapping:', cur);
+      
+      if(cur && cur.mcm && Array.isArray(cur.mcm.mc)) {
+        console.log('[EXTRACT] Found mcm.mc format with', cur.mcm.mc.length, 'market changes');
+        return cur.mcm.mc;
+      }
+      if(cur && cur.op==='mcm' && Array.isArray(cur.mc)) {
+        console.log('[EXTRACT] Found op:mcm format with', cur.mc.length, 'market changes');
+        return cur.mc;
+      }
+      if(cur && Array.isArray(cur.mc)) {
+        console.log('[EXTRACT] Found direct mc format with', cur.mc.length, 'market changes');
+        return cur.mc;
+      }
+      
+      // Check for other possible Betfair formats
+      if(cur && cur.result && Array.isArray(cur.result)) {
+        console.log('[EXTRACT] Found result array format with', cur.result.length, 'items');
+        return cur.result;
+      }
+      
+      console.log('[EXTRACT] No market changes found. Available keys:', Object.keys(cur || {}));
       return null;
     }
     function extractStatus(msg){
@@ -504,6 +565,7 @@
       const store = window.__BF_STORE__;
       if (!store || !store.markets) {
         console.debug('[UI] Store not available yet');
+        list.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Loading markets...</div>';
         return;
       }
       
@@ -514,6 +576,12 @@
       });
 
       console.debug(`[UI] Rendering ${items.length} markets`);
+      console.debug('[UI] Available markets:', items.map(m => ({id: m.id, venue: m.venue, name: m.name, runners: m.runners.size})));
+
+      if (items.length === 0) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">No racing markets available.<br><small>Waiting for Betfair data...</small></div>';
+        return;
+      }
 
       for (const m of items) {
         const title = [m.venue, m.name].filter(Boolean).join(' · ');
@@ -681,6 +749,14 @@
 
     // Real Betfair data will be populated via WebSocket connection
     // The existing WebSocket client will handle market data from Betfair's delayed feed
+    
+    // Initialize UI immediately 
+    renderMarketList();
+    
+    // Add debug info to help troubleshoot
+    console.log('[DEBUG] App initialized, WebSocket connecting to:', WS_URL);
+    console.log('[DEBUG] Store available:', !!window.__BF_STORE__);
+    console.log('[DEBUG] Initial market count:', window.__BF_STORE__ ? window.__BF_STORE__.markets.size : 'Store not available');
 
     // Auto-refresh market list when new data arrives
     let lastMarketUpdate = 0;
