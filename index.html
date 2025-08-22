@@ -355,25 +355,10 @@
       ws.onopen = () => {
         setConn('Connected');
         backoff=1000;
-        console.log('[WS:CONNECTED] Sending hello message...');
-        wsSend({type:'hello', client:'mobile-tracker', ts:Date.now()});
+        console.log('[WS:CONNECTED] Connected to Betfair Stream API');
         
-        // Try multiple potential request formats
-        console.log('[WS:REQUESTING] Trying various request formats...');
-        
-        // Standard hello
-        wsSend({type:'hello'});
-        
-        // Betfair-style requests
-        wsSend({op:'listMarketCatalogue', filter:{eventTypeIds:['7'], marketCountries:['GB','IE']}});
-        wsSend({op:'listMarketBook', marketIds:[]});
-        
-        // Generic data requests
-        wsSend({type:'getMarkets'});
-        wsSend({type:'subscribe', eventTypes:['racing']});
-        wsSend({action:'subscribe', markets:'all'});
-        
-        console.log('[WS:CONNECTED] All request messages sent');
+        // Wait for heartbeat and connection messages before making requests
+        // The heartbeat handler above will trigger market catalogue requests
         
         startHB();
       };
@@ -393,6 +378,37 @@
           }
 
           console.log('[WS:PARSED]', msg);
+
+          // Handle Betfair Stream API heartbeat
+          if(msg.op === 'heartbeat') {
+            console.log('[WS:HEARTBEAT] Received heartbeat, responding...');
+            wsSend({op: 'heartbeat', id: msg.id});
+            continue;
+          }
+
+          // Handle connection/status messages
+          if(msg.op === 'connection' && msg.connectionMessage) {
+            console.log('[WS:CONNECTION]', msg.connectionMessage);
+            setConn('Connected - ' + msg.connectionMessage);
+            
+            // After successful connection, request market catalogue
+            console.log('[WS:REQUESTING] Requesting market catalogue...');
+            wsSend({
+              op: 'listMarketCatalogue',
+              id: 2,
+              filter: {
+                eventTypeIds: ['7'], // Horse Racing
+                marketCountries: ['GB', 'IE'],
+                marketTypeCodes: ['WIN'],
+                marketStartTime: {
+                  from: new Date().toISOString(),
+                  to: new Date(Date.now() + 24*60*60*1000).toISOString()
+                }
+              },
+              maxResults: 100
+            });
+            continue;
+          }
 
           if(!firstFrame){ 
             firstFrame = msg; 
