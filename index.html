@@ -358,10 +358,22 @@
         console.log('[WS:CONNECTED] Sending hello message...');
         wsSend({type:'hello', client:'mobile-tracker', ts:Date.now()});
         
-        // Also try requesting market data directly
-        console.log('[WS:REQUESTING] Requesting market data...');
-        wsSend({type:'getMarkets', client:'mobile-tracker'});
+        // Try multiple potential request formats
+        console.log('[WS:REQUESTING] Trying various request formats...');
+        
+        // Standard hello
+        wsSend({type:'hello'});
+        
+        // Betfair-style requests
         wsSend({op:'listMarketCatalogue', filter:{eventTypeIds:['7'], marketCountries:['GB','IE']}});
+        wsSend({op:'listMarketBook', marketIds:[]});
+        
+        // Generic data requests
+        wsSend({type:'getMarkets'});
+        wsSend({type:'subscribe', eventTypes:['racing']});
+        wsSend({action:'subscribe', markets:'all'});
+        
+        console.log('[WS:CONNECTED] All request messages sent');
         
         startHB();
       };
