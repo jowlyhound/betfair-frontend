@@ -230,7 +230,7 @@
 
   <script>
     /*** --- CONFIG --- ***/
-    const WS_URL = "wss://harassment-discipline-minutes-soma.trycloudflare.com";
+    const WS_URL = "ws://194.164.95.216:10000";
     const REQUIRE_SUBSCRIBE = true;          // force a subscribe from the client
     const MAX_MARKETS_TO_TRACK = 1;          // track the next-off market
 
@@ -389,24 +389,16 @@
           // Handle connection/status messages
           if(msg.op === 'connection' && msg.connectionMessage) {
             console.log('[WS:CONNECTION]', msg.connectionMessage);
-            setConn('Connected - ' + msg.connectionMessage);
-            
-            // After successful connection, request market catalogue
-            console.log('[WS:REQUESTING] Requesting market catalogue...');
-            wsSend({
-              op: 'listMarketCatalogue',
-              id: 2,
-              filter: {
-                eventTypeIds: ['7'], // Horse Racing
-                marketCountries: ['GB', 'IE'],
-                marketTypeCodes: ['WIN'],
-                marketStartTime: {
-                  from: new Date().toISOString(),
-                  to: new Date(Date.now() + 24*60*60*1000).toISOString()
-                }
-              },
-              maxResults: 100
-            });
+            setConn('Connected - Server handles subscriptions automatically');
+            continue;
+          }
+          
+          // Handle status messages
+          if(msg.op === 'status') {
+            console.log('[WS:STATUS]', msg);
+            if(msg.statusCode) {
+              setConn('Status: ' + msg.statusCode);
+            }
             continue;
           }
 
