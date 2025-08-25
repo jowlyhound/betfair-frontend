@@ -3,189 +3,307 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🏇 Betfair Racing Tracker - Live</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='18' font-size='18'>🏇</text></svg>" />
+  <title>Betfair Racing Tracker</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      color: white; min-height: 100vh; padding: 15px;
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body { margin: 0; background: #0b0f14; color: #e7eef7; }
+    header { padding: 16px 20px; border-bottom: 1px solid #1b2533; display:flex; align-items:center; justify-content:space-between;}
+    .tag { font-size:12px; padding:4px 8px; border-radius:999px; background:#13202f; border:1px solid #243246; margin-left:8px;}
+    .status { font-size:12px; opacity:.8 }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 16px; }
+    .trading-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    
+    /* Trading Interface Styling */
+    .scanner-panel { grid-column: span 2; }
+    .pattern-filters { grid-column: span 2; }
+    .signals-dashboard { grid-column: span 2; min-height: 300px; }
+    .betting-calculator { }
+    .performance-metrics { }
+    
+    /* Scanner Controls */
+    .scanner-controls { display: flex; flex-direction: column; gap: 12px; padding: 12px; border-bottom: 1px solid #1b2533; }
+    .scanner-filters { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .scanner-filters label { font-size: 12px; color: #9fb7d5; min-width: 100px; }
+    .scanner-filters input[type="range"] { width: 120px; }
+    .search-bar { display: flex; gap: 8px; }
+    .search-bar input { flex: 1; }
+    .scan-btn { background: #2ecc71 !important; border-color: #27ae60 !important; font-weight: bold; }
+    
+    /* Market Grid */
+    .market-grid { display: grid; gap: 8px; padding: 12px; max-height: 250px; overflow-y: auto; }
+    .market-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-radius: 6px; background: #13202f; border: 1px solid #243246; cursor: pointer; transition: all 0.2s; }
+    .market-item:hover { background: #1a2733; border-color: #3498db; }
+    .market-item.selected { border-color: #2ecc71; background: #1e3025; }
+    .market-info { display: flex; flex-direction: column; gap: 2px; }
+    .market-name { font-weight: 600; color: #e7eef7; }
+    .market-time { font-size: 11px; color: #9fb7d5; }
+    .market-stats { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+    .liquidity-badge { background: #2ecc71; color: white; padding: 2px 6px; border-radius: 12px; }
+    .time-badge { background: #3498db; color: white; padding: 2px 6px; border-radius: 12px; }
+    
+    /* Smart Filters */
+    .filter-grid { display: flex; gap: 8px; padding: 12px; flex-wrap: wrap; }
+    .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #243246; background: #0f1620; color: #9fb7d5; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .filter-btn:hover { background: #1a2733; border-color: #3498db; }
+    .filter-btn.active { background: #3498db; border-color: #2980b9; color: white; font-weight: bold; }
+    
+    /* Signals Dashboard */
+    .signals-container { padding: 12px; max-height: 400px; overflow-y: auto; }
+    .signal-counter { background: #e74c3c; color: white; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 11px; }
+    .no-signals { text-align: center; padding: 40px 20px; color: #9fb7d5; }
+    .no-signals-icon { font-size: 32px; margin-bottom: 12px; }
+    .no-signals-text { font-size: 14px; }
+    
+    /* Enhanced Signal Items */
+    .signal-item { margin-bottom: 12px; padding: 12px; border-radius: 8px; border-left: 4px solid; position: relative; background: linear-gradient(145deg, rgba(15,22,32,0.9), rgba(19,32,47,0.9)); }
+    .signal-item::before { content: ''; position: absolute; top: -1px; right: -1px; bottom: -1px; left: -1px; background: linear-gradient(45deg, transparent 30%, rgba(52,152,219,0.3), transparent 70%); border-radius: 8px; z-index: -1; opacity: 0; transition: opacity 0.3s; }
+    .signal-item:hover::before { opacity: 1; }
+    
+    /* Calculator */
+    .calculator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; }
+    .calc-input { display: flex; flex-direction: column; gap: 4px; }
+    .calc-input label { font-size: 12px; color: #9fb7d5; font-weight: 500; }
+    .calc-input input { background: #13202f; border: 1px solid #243246; border-radius: 4px; padding: 8px; color: #e7eef7; }
+    .calc-result { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #13202f; border-radius: 6px; border-left: 4px solid #2ecc71; }
+    .result-label { font-size: 12px; color: #9fb7d5; }
+    .result-value { font-size: 16px; font-weight: bold; color: #2ecc71; }
+    
+    /* Performance Metrics */
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px; }
+    .metric-card { text-align: center; padding: 16px; background: #13202f; border-radius: 8px; border: 1px solid #243246; position: relative; overflow: hidden; }
+    .metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #3498db, #2ecc71, #f39c12); }
+    .metric-value { font-size: 24px; font-weight: bold; color: #e7eef7; margin-bottom: 4px; }
+    .metric-label { font-size: 11px; color: #9fb7d5; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .metric-change { font-size: 10px; padding: 2px 6px; border-radius: 10px; }
+    .metric-change.positive { background: #2ecc71; color: white; }
+    .metric-change.negative { background: #e74c3c; color: white; }
+    .performance-actions { display: flex; gap: 8px; padding: 0 16px 16px; }
+    
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+      .trading-layout { grid-template-columns: 1fr; }
+      .scanner-panel, .pattern-filters, .signals-dashboard { grid-column: span 1; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    .header { text-align: center; padding: 20px; background: rgba(0,0,0,0.3); 
-      border-radius: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }
-    .live-badge { background: #FF5722; padding: 4px 8px; border-radius: 10px; 
-      font-size: 11px; font-weight: bold; animation: pulse 2s infinite; }
+    @media (max-width: 768px) {
+      .trading-layout { gap: 12px; }
+      .scanner-filters { flex-direction: column; align-items: stretch; }
+      .filter-grid { justify-content: center; }
+      .metrics-grid { grid-template-columns: 1fr; }
+      .calculator-grid { grid-template-columns: 1fr; }
+    }
+    .card { background:#0f1620; border:1px solid #1b2533; border-radius:14px; }
+    .card h3 { margin:0; padding:12px 14px; border-bottom:1px solid #1b2533; font-size:14px; letter-spacing:.3px; color:#bcd0ea; }
+    .list { max-height: 70vh; overflow:auto; }
+    .row { display:flex; gap:10px; align-items:center; padding:10px 12px; border-bottom:1px solid #13202f; cursor:pointer;}
+    .row:hover { background:#0c131c; }
+    .row .mkt { flex:1; }
+    .small { font-size:12px; opacity:.75 }
+    .pill { font-size:11px; padding:3px 6px; border-radius:6px; background:#121c29; border:1px solid #243246; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #13202f; font-size: 13px; }
+    th { text-align:left; color:#9fb7d5; position: sticky; top: 0; background:#0f1620; }
+    .price { font-variant-numeric: tabular-nums; }
+    .green { color:#8de29b; }
+    .red { color:#f19aa8; }
+    .muted { opacity:.65 }
+    .controls { display:flex; gap:8px; padding:10px 12px; align-items:center; border-bottom:1px solid #1b2533 }
+    .btn { padding:8px 10px; border-radius:8px; border:1px solid #243246; background:#121c1f; color:#d9e6f7; cursor:pointer; font-size:13px;}
+    .btn:hover { background:#0f1a2a; }
+    .btn.scanning { background:#2d5a2d; border-color:#4a7c59; color:#b8e6c1; }
+    .signal-item { padding:12px; border-radius:8px; margin-bottom:8px; border-left:4px solid; animation: slideIn 0.3s ease; }
+    .signal-steam-move { border-left-color:#f39c12; background:#2c1810; }
+    .signal-volume-spike { border-left-color:#9b59b6; background:#2b1e32; }
+    .signal-back-pressure { border-left-color:#3498db; background:#1a2332; }
+    .signal-market-confidence { border-left-color:#2ecc71; background:#1e3025; }
+    .signal-late-steam { border-left-color:#ff6b6b; background:#2d1b1b; }
+    .severity-critical { border-left-width: 6px; box-shadow: 0 0 10px rgba(231, 76, 60, 0.3); animation: pulse 2s infinite; }
+    .severity-high { border-left-width: 4px; box-shadow: 0 0 8px rgba(243, 156, 18, 0.2); }
+    .severity-medium { border-left-width: 3px; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 15px 0; }
-    .stat { text-align: center; padding: 15px; background: rgba(255,255,255,0.15); 
-      border-radius: 15px; backdrop-filter: blur(10px); }
-    .stat-value { font-size: 22px; font-weight: bold; color: #FFD700; }
-    .stat-label { font-size: 10px; opacity: 0.8; text-transform: uppercase; margin-top: 5px; }
-    .controls { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; 
-      margin-bottom: 20px; backdrop-filter: blur(10px); text-align: center; }
-    .start-btn { padding: 15px 30px; background: linear-gradient(135deg, #4CAF50, #45a049);
-      border: none; border-radius: 15px; color: white; font-size: 16px; font-weight: bold;
-      cursor: pointer; margin: 10px; transition: all 0.3s; }
-    .start-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(76,175,80,0.4); }
-    .start-btn.active { background: linear-gradient(135deg, #FF6B6B, #FF8E53); animation: glow 2s infinite; }
-    .start-btn.scanning { background: linear-gradient(135deg, #FF6B6B, #FF8E53); animation: glow 2s infinite; }
-    @keyframes glow { 0%, 100% { box-shadow: 0 4px 20px rgba(255,107,107,0.4); } 50% { box-shadow: 0 4px 30px rgba(255,107,107,0.6); } }
-    .market-card { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 15px; 
-      margin: 15px 0; backdrop-filter: blur(10px); }
-    .market-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .market-name { font-weight: bold; font-size: 18px; }
-    .market-info { font-size: 12px; opacity: 0.8; }
-    .market-list { margin-top: 10px; }
-    .market-item { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 10px; 
-      margin: 8px 0; display: flex; justify-content: space-between; align-items: center;
-      cursor: pointer; transition: all 0.2s; }
-    .market-item:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
-    .market-item.analyzing { background: linear-gradient(45deg, rgba(76,175,80,0.3), rgba(76,175,80,0.1)); 
-      animation: analyze 1s infinite; }
-    @keyframes analyze { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
-    .market-time { font-weight: bold; color: #FFD700; }
-    .market-name-text { flex: 1; margin: 0 10px; font-size: 14px; }
-    .runner-count { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 8px; 
-      font-size: 12px; }
-    .pattern-alerts { margin-top: 20px; }
-    .signal-item { background: rgba(255,255,255,0.15); margin: 10px 0; padding: 15px; 
-      border-radius: 15px; backdrop-filter: blur(15px); border-left: 4px solid #4CAF50;
-      animation: slideIn 0.3s ease; }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .signal-item.signal-steam { border-left-color: #f39c12; }
-    .signal-item.signal-smart { border-left-color: #3498db; }
-    .signal-item.signal-confidence { border-left-color: #2ecc71; }
-    .signal-item.signal-whale { border-left-color: #e74c3c; }
-    .signal-item.signal-late { border-left-color: #FF6B6B; }
-    .signal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .signal-conf { background: rgba(255,255,255,0.3); padding: 4px 10px; border-radius: 12px; 
-      font-size: 12px; font-weight: bold; }
-    .signal-type { display: inline-block; background: rgba(255,255,255,0.25); padding: 3px 8px; 
-      border-radius: 10px; font-size: 10px; margin: 2px; text-transform: uppercase; }
-    .signal-desc { font-size: 13px; margin-bottom: 4px; }
-    .signal-meta { font-size: 11px; opacity: 0.7; }
-    .status { background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.5); 
-      padding: 12px; border-radius: 10px; margin: 10px 0; font-size: 14px; text-align: center; }
-    .status.warning { background: rgba(255,193,7,0.2); border-color: rgba(255,193,7,0.5); }
-    .status.info { background: rgba(33,150,243,0.2); border-color: rgba(33,150,243,0.5); }
-    input, select { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); 
-      border-radius: 8px; padding: 8px 10px; font-size: 13px; }
-    input::placeholder { color: rgba(255,255,255,0.5); }
+    .signal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .signal-type { font-size:11px; padding:2px 6px; border-radius:4px; text-transform:uppercase; font-weight:bold; }
+    .signal-conf { font-size:11px; opacity:0.8; }
+    .signal-desc { font-size:13px; margin-bottom:4px; }
+    .signal-meta { font-size:11px; opacity:0.7; }
+    @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    input, select { background:#0f1620; color:#d9e6f7; border:1px solid #243246; border-radius:8px; padding:8px 10px; font-size:13px; }
     .flex { display:flex; gap:8px; align-items:center; }
     .grow { flex:1; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; }
-    .btn { padding: 8px 15px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); 
-      border-radius: 8px; color: white; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-    .btn:hover { background: rgba(255,255,255,0.2); }
-    table { width: 100%; border-collapse: collapse; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 13px; }
-    th { text-align: left; background: rgba(255,255,255,0.1); font-weight: bold; }
-    .price { font-variant-numeric: tabular-nums; }
-    .muted { opacity: 0.7; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🏇 Betfair Racing Tracker</h1>
-    <div style="margin-top: 10px; font-size: 14px;">
-      <span class="live-badge">LIVE</span>
-      <span style="margin-left: 10px;" id="connection-status">Connected</span>
+  <header>
+    <div class="flex">
+      <h1 style="font-size:16px; margin:0;">Betfair Racing Tracker</h1>
+      <span class="tag">Live</span>
+      <span class="tag">GB/IE · WIN</span>
     </div>
-  </div>
+    <div class="flex">
+      <div class="status" id="status">Disconnected</div>
+      <div class="status" id="rate" style="margin-left:12px;"></div>
+      <button class="btn" id="scanButton" style="margin-left:12px;">🔍 Start Pattern Scanning</button>
+      <button class="btn" id="settingsButton" style="margin-left:8px;">⚙️ Settings</button>
+      <button class="btn" id="clearSignalsButton" style="margin-left:8px;">🗑️ Clear</button>
+    </div>
+  </header>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value" id="totalMarkets">0</div>
-      <div class="stat-label">Markets</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="totalRunners">0</div>
-      <div class="stat-label">Runners</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="patternsFound">0</div>
-      <div class="stat-label">Patterns</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="frameCount">0</div>
-      <div class="stat-label">Data Frames</div>
-    </div>
-  </div>
-
-  <div class="controls">
-    <div style="margin-bottom: 15px;">
-      🔍 <strong>Live Pattern Detection</strong> - Scanning Betfair exchange for betting opportunities
-    </div>
-    <button class="start-btn" id="scanButton">🚀 Start Pattern Scanning</button>
-    <button class="start-btn" id="btn-refresh">🔄 Refresh Market Data</button>
-  </div>
-
-  <div class="status" id="status">📡 Connecting to Betfair stream...</div>
-
-  <div class="market-card">
-    <div class="market-header">
-      <div class="market-name">🏁 Available Markets</div>
-      <div class="market-info">
-        <input id="search" class="grow" placeholder="Search course or off-time (e.g. 'Wolv' or '14:10')" style="width: 300px;" />
-      </div>
-    </div>
-    <div class="market-list" id="market-list" role="listbox" aria-label="Markets"></div>
-  </div>
-
-  <div class="market-card">
-    <div class="market-header">
-      <div class="market-name" id="market-title">Select a market…</div>
-      <div class="market-info">
-        <div class="flex">
-          <select id="sort">
-            <option value="fav">By price (fav first)</option>
-            <option value="alpha">By runner name (A→Z)</option>
-            <option value="num">By runner #</option>
-          </select>
-          <select id="cols" style="margin-left: 10px;">
-            <option value="best">Best Back/Lay</option>
-            <option value="ltp">Last Traded Price</option>
-            <option value="both">Both</option>
-          </select>
+  <div class="wrap">
+    <div class="trading-layout">
+      <!-- Market Scanner -->
+      <section class="card scanner-panel">
+        <h3>🔍 Market Scanner</h3>
+        <div class="scanner-controls">
+          <div class="scanner-filters">
+            <label>Min Liquidity: £<span id="liquidityDisplay">2000</span></label>
+            <input type="range" id="minLiquidity" min="500" max="10000" value="2000" step="500">
+            <label>Max Time: <span id="timeDisplay">120</span>m</label>
+            <input type="range" id="maxTime" min="30" max="300" value="120" step="30">
+            <button class="btn scan-btn" id="quickScan">🎯 Scan Quality Markets</button>
+          </div>
+          <div class="search-bar">
+            <input id="search" placeholder="Search course or off-time (e.g. 'Wolv' or '14:10')" />
+            <button class="btn" id="btn-refresh">↻</button>
+          </div>
         </div>
-      </div>
-    </div>
-    <div style="padding: 10px;">
-      <table>
-        <thead>
-          <tr id="thead-row"></tr>
-        </thead>
-        <tbody id="runner-body"></tbody>
-      </table>
-    </div>
-    <div style="padding: 10px;">
-      <details>
-        <summary class="muted">Debug</summary>
-        <pre class="mono" id="debug" style="max-height:160px; overflow:auto;"></pre>
-      </details>
-    </div>
-  </div>
-
-  <div id="patternAlerts" class="pattern-alerts"></div>
-
-  <div class="wrap" style="display: none;">
-    <div class="grid">
-      <!-- Markets list -->
-      <section class="card">
-        <h3>Markets</h3>
-        <div class="controls">
-          <input id="search" class="grow" placeholder="Search course or off-time (e.g. 'Wolv' or '14:10')" />
-          <button class="btn" id="btn-refresh">Refresh</button>
-        </div>
-        <div class="list" id="market-list" role="listbox" aria-label="Markets"></div>
+        <div class="market-grid" id="market-list" role="listbox" aria-label="Markets"></div>
       </section>
 
-      <!-- Signals Panel -->
-      <section class="card" id="signals-panel" style="display:none;">
-        <h3>🚨 Live Signals</h3>
-        <div style="padding:12px; max-height:400px; overflow-y:auto;" id="signals-list">
-          <!-- Signals will appear here -->
+      <!-- Smart Filters Panel -->
+      <section class="card pattern-filters">
+        <h3>🎯 Smart Pattern Filters</h3>
+        <div class="filter-grid">
+          <button class="filter-btn active" data-filter="all">All Patterns</button>
+          <button class="filter-btn" data-filter="high-confidence">High Confidence (80%+)</button>
+          <button class="filter-btn" data-filter="positive-ev">Positive EV Only</button>
+          <button class="filter-btn" data-filter="critical">Critical Alerts</button>
+          <button class="filter-btn" data-filter="late-steam">Late Steam</button>
+          <button class="filter-btn" data-filter="whale">Whale Activity</button>
+        </div>
+      </section>
+
+      <!-- Live Signals Dashboard -->
+      <section class="card signals-dashboard" id="signals-panel">
+        <h3>🚨 Live Trading Signals <span id="signals-count" class="signal-counter">0</span></h3>
+        <div class="signals-container" id="signals-list">
+          <div class="no-signals">
+            <div class="no-signals-icon">📊</div>
+            <div class="no-signals-text">Start scanning to detect betting patterns...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Betting Calculator -->
+      <section class="card betting-calculator">
+        <h3>💰 Smart Stake Calculator</h3>
+        <div class="calculator-grid">
+          <div class="calc-input">
+            <label>Bankroll (£)</label>
+            <input type="number" id="bankroll" placeholder="1000" value="1000">
+          </div>
+          <div class="calc-input">
+            <label>Max Risk (%)</label>
+            <input type="number" id="maxStake" placeholder="5" value="5" min="1" max="20">
+          </div>
+          <div class="calc-input">
+            <label>Win Probability</label>
+            <input type="number" id="winProb" placeholder="65" min="1" max="99">
+          </div>
+          <div class="calc-input">
+            <label>Decimal Odds</label>
+            <input type="number" id="decimalOdds" placeholder="2.5" step="0.1" min="1.1">
+          </div>
+          <div class="calc-result">
+            <div class="result-label">Kelly Recommended Stake:</div>
+            <div class="result-value" id="kellyStake">£0.00</div>
+          </div>
+          <div class="calc-result">
+            <div class="result-label">Expected Value:</div>
+            <div class="result-value" id="expectedValue">0.00%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Panel -->
+      <section class="card" id="settings-panel" style="display:none;">
+        <h3>⚙️ Pattern Detection Settings</h3>
+        <div style="padding:16px;">
+          <div class="flex" style="margin-bottom:12px;">
+            <label style="min-width:120px;">Steam Move Threshold:</label>
+            <input type="range" id="steamThreshold" min="10" max="30" value="15" style="flex:1; margin-right:8px;">
+            <span id="steamValue">15%</span>
+          </div>
+          <div class="flex" style="margin-bottom:12px;">
+            <label style="min-width:120px;">Volume Spike Factor:</label>
+            <input type="range" id="volumeThreshold" min="2" max="10" value="3" step="0.5" style="flex:1; margin-right:8px;">
+            <span id="volumeValue">3.0x</span>
+          </div>
+          <div class="flex" style="margin-bottom:12px;">
+            <label style="min-width:120px;">Back Pressure Min:</label>
+            <input type="range" id="backThreshold" min="60" max="90" value="70" style="flex:1; margin-right:8px;">
+            <span id="backValue">70%</span>
+          </div>
+          <div class="flex" style="margin-bottom:12px;">
+            <label style="min-width:120px;">Min Liquidity:</label>
+            <input type="range" id="liquidityThreshold" min="100" max="1000" value="200" step="50" style="flex:1; margin-right:8px;">
+            <span id="liquidityValue">£200</span>
+          </div>
+          <div class="flex" style="margin-bottom:16px;">
+            <label style="min-width:120px;">Pattern Types:</label>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <label><input type="checkbox" id="enableSteam" checked> Steam Moves</label>
+              <label><input type="checkbox" id="enableVolume" checked> Volume Spikes</label>
+              <label><input type="checkbox" id="enablePressure" checked> Back Pressure</label>
+              <label><input type="checkbox" id="enableConfidence" checked> Market Confidence</label>
+              <label><input type="checkbox" id="enableLate" checked> Late Steam</label>
+            </div>
+          </div>
+          <div class="flex" style="gap:8px;">
+            <button class="btn" id="saveSettings">💾 Save Settings</button>
+            <button class="btn" id="resetSettings">🔄 Reset Defaults</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Performance Tracking Dashboard -->
+      <section class="card performance-metrics">
+        <h3>📊 Pattern Performance</h3>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value" id="win-rate">---%</div>
+            <div class="metric-label">Win Rate</div>
+            <div class="metric-change" id="wr-change">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="profit-loss">£---</div>
+            <div class="metric-label">P&L Today</div>
+            <div class="metric-change" id="pl-change">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="avg-confidence">---%</div>
+            <div class="metric-label">Avg Confidence</div>
+            <div class="metric-change" id="conf-change">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="signals-today">0</div>
+            <div class="metric-label">Signals Today</div>
+            <div class="metric-change" id="sig-change">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="best-pattern">---</div>
+            <div class="metric-label">Top Pattern</div>
+            <div class="metric-change" id="bp-change">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value" id="roi">---%</div>
+            <div class="metric-label">ROI</div>
+            <div class="metric-change" id="roi-change">--</div>
+          </div>
+        </div>
+        <div class="performance-actions">
+          <button class="btn" id="exportData">📊 Export CSV</button>
+          <button class="btn" id="resetMetrics">🔄 Reset Daily Stats</button>
         </div>
       </section>
 
@@ -233,6 +351,21 @@
     const WS_URL = "wss://manual-appropriate-portraits-characteristics.trycloudflare.com";
     const REQUIRE_SUBSCRIBE = true;          // force a subscribe from the client
     const MAX_MARKETS_TO_TRACK = 1;          // track the next-off market
+    
+    // Pattern detection settings (configurable via UI)
+    let patternSettings = {
+      steamThreshold: 0.15,     // 15% price drop
+      volumeThreshold: 3.0,     // 3x volume spike
+      backThreshold: 0.70,      // 70% backing pressure
+      liquidityThreshold: 200,  // £200 minimum liquidity
+      enabledPatterns: {
+        steamMove: true,
+        volumeSpike: true,
+        backPressure: true,
+        marketConfidence: true,
+        lateSteam: true
+      }
+    };
 
     /*** --- LIGHT STORE --- ***/
     class BetfairStore {
@@ -261,87 +394,191 @@
           }
           let bb = r.depth.length? r.depth[r.depth.length-1].bbSize : 0;
           let bl = r.depth.length? r.depth[r.depth.length-1].blSize : 0;
-          if(Array.isArray(rc.atb) && rc.atb[0]) bb = rc.atb[0][1];
-          if(Array.isArray(rc.atl) && rc.atl[0]) bl = rc.atl[0][1];
+          if(Array.isArray(rc.batb) && rc.batb[0]) bb = rc.batb[0][1];
+          if(Array.isArray(rc.batl) && rc.batl[0]) bl = rc.batl[0][1];
           r.depth.push({t:now, bbSize:bb, blSize:bl});
           const cut2=now-5*60*1000; while(r.depth.length && r.depth[0].t<cut2) r.depth.shift();
 
           if(now - r.lastSignalAt > 8000){
-            const sig = detectSignals(m, r);
-            if(sig){ r.lastSignalAt=now; this.emit(sig); }
+            const signal = detectSignals(m, r);
+            if(signal){ 
+              r.lastSignalAt=now; 
+              const formattedSignal = sig(signal, r.name, m);
+              this.emit(formattedSignal); 
+            }
           }
         });
       }
     }
 
-    /*** --- ENHANCED DETECTORS --- ***/
-    function detectSignals(mkt, r){
-      const now=Date.now();
+    /*** --- PROFESSIONAL PATTERN DETECTION ENGINE --- ***/
+    
+    // Pattern detection with proper betting analysis
+    function detectSignals(mkt, r) {
+      const now = Date.now();
+      const signals = [];
       
-      // 1. STEAM MOVE: Sharp price drop (smart money entering)
-      const rec3m=r.hist.filter(h=> h.t>=now-180000);
-      if(rec3m.length>=3){
-        const start=rec3m[0].ltp, end=rec3m[rec3m.length-1].ltp;
-        const mid = rec3m[Math.floor(rec3m.length/2)].ltp;
-        if(start && end && mid && end<=start*0.85){
-          // Check if drop was consistent (not just a single spike)
-          const consistency = (start-end) / (start-mid + mid-end) * 2;
-          if(consistency > 0.7) {
-            return sig('STEAM_MOVE', r.name, mkt, 0.8, `Consistent price drop ${Math.round((1-end/start)*100)}% in 3m`);
+      // Get time windows for analysis
+      const hist5m = r.hist.filter(h => h.t >= now - 300000); // 5 minutes
+      const hist3m = r.hist.filter(h => h.t >= now - 180000); // 3 minutes  
+      const hist1m = r.hist.filter(h => h.t >= now - 60000);  // 1 minute
+      const depth2m = r.depth.filter(d => d.t >= now - 120000); // 2 minutes
+      const depth30s = r.depth.filter(d => d.t >= now - 30000); // 30 seconds
+      
+      // Calculate base metrics
+      const currentLTP = hist1m.length ? hist1m[hist1m.length-1].ltp : null;
+      const currentDepth = depth30s.length ? depth30s[depth30s.length-1] : null;
+      
+      if (!currentLTP || !currentDepth) return null;
+      
+      // 1. STEAM MOVES - Rapid price shortening (configurable threshold)
+      if (patternSettings.enabledPatterns.steamMove && hist5m.length >= 3) {
+        const startPrice = hist5m[0].ltp;
+        const endPrice = currentLTP;
+        const priceDrop = (startPrice - endPrice) / startPrice;
+        
+        if (priceDrop >= patternSettings.steamThreshold) {
+          // Check consistency - not just one big jump
+          const segments = Math.min(5, hist5m.length);
+          const segmentSize = Math.floor(hist5m.length / segments);
+          let consistentDrops = 0;
+          
+          for (let i = 0; i < segments - 1; i++) {
+            const segStart = hist5m[i * segmentSize].ltp;
+            const segEnd = hist5m[(i + 1) * segmentSize].ltp;
+            if (segEnd < segStart) consistentDrops++;
+          }
+          
+          const consistency = consistentDrops / (segments - 1);
+          if (consistency >= 0.6) { // 60% of segments showing drops
+            const confidence = Math.min(0.95, 0.6 + (priceDrop * 2) + (consistency * 0.3));
+            signals.push({
+              type: 'STEAM_MOVE',
+              severity: priceDrop >= 0.25 ? 'CRITICAL' : priceDrop >= 0.20 ? 'HIGH' : 'MEDIUM',
+              confidence,
+              description: `${(priceDrop * 100).toFixed(1)}% price drop in 5m (${startPrice.toFixed(2)} → ${endPrice.toFixed(2)})`,
+              metrics: { priceDrop, consistency, timeframe: '5m' }
+            });
           }
         }
       }
-
-      // 2. SMART MONEY ENTRY: Large single back matched at good price
-      const rec30s=r.hist.filter(h=> h.t>=now-30000);
-      if(rec30s.length>=2){
-        const recent = rec30s.slice(-2);
-        const priceImprovement = (recent[0].ltp - recent[1].ltp) / recent[0].ltp;
-        if(priceImprovement > 0.05) { // 5% improvement
-          return sig('SMART_MONEY', r.name, mkt, 0.75, `Large back matched - price improved ${(priceImprovement*100).toFixed(1)}%`);
+      
+      // 2. VOLUME SPIKES - Configurable volume activity
+      if (patternSettings.enabledPatterns.volumeSpike && depth2m.length >= 5) {
+        const recentVol = depth30s.slice(-3).reduce((sum, d) => sum + (d.bbSize || 0) + (d.blSize || 0), 0) / 3;
+        const baselineVol = depth2m.slice(0, -6).reduce((sum, d) => sum + (d.bbSize || 0) + (d.blSize || 0), 0) / (depth2m.length - 6);
+        
+        if (baselineVol > 0 && recentVol >= baselineVol * patternSettings.volumeThreshold) {
+          const volumeMultiplier = recentVol / baselineVol;
+          const confidence = Math.min(0.9, 0.5 + (volumeMultiplier / 10));
+          
+          signals.push({
+            type: 'VOLUME_SPIKE',
+            severity: volumeMultiplier >= 8 ? 'CRITICAL' : volumeMultiplier >= 5 ? 'HIGH' : 'MEDIUM',
+            confidence,
+            description: `${volumeMultiplier.toFixed(1)}x volume spike (£${recentVol.toFixed(0)} vs £${baselineVol.toFixed(0)} baseline)`,
+            metrics: { volumeMultiplier, recentVol, baselineVol }
+          });
         }
       }
-
-      // 3. MARKET CONFIDENCE: Sustained backing with volume
-      const dep60s=r.depth.filter(d=> d.t>=now-60000);
-      if(dep60s.length>=3){
-        const backTrend = dep60s.slice(-3).every((d,i,arr) => i===0 || d.bbSize >= arr[i-1].bbSize);
-        const avgBack = dep60s.reduce((s,d)=>s+d.bbSize,0) / dep60s.length;
-        if(backTrend && avgBack > 100) {
-          return sig('MARKET_CONFIDENCE', r.name, mkt, 0.7, `Sustained backing trend - avg size ${avgBack.toFixed(0)}`);
+      
+      // 3. BACK/LAY IMBALANCES - Heavy backing pressure (configurable)
+      if (patternSettings.enabledPatterns.backPressure && (currentDepth.bbSize > 0 || currentDepth.blSize > 0)) {
+        const totalLiquidity = (currentDepth.bbSize || 0) + (currentDepth.blSize || 0);
+        const backRatio = (currentDepth.bbSize || 0) / totalLiquidity;
+        
+        if (backRatio >= patternSettings.backThreshold && totalLiquidity >= patternSettings.liquidityThreshold) {
+          const pressure = backRatio;
+          const confidence = Math.min(0.85, 0.4 + (pressure * 0.5) + (totalLiquidity / 2000));
+          
+          signals.push({
+            type: 'BACK_PRESSURE', 
+            severity: backRatio >= 0.85 ? 'CRITICAL' : backRatio >= 0.80 ? 'HIGH' : 'MEDIUM',
+            confidence,
+            description: `${(backRatio * 100).toFixed(0)}% backing pressure (£${(currentDepth.bbSize || 0).toFixed(0)} back vs £${(currentDepth.blSize || 0).toFixed(0)} lay)`,
+            metrics: { backRatio, totalLiquidity, backSize: currentDepth.bbSize, laySize: currentDepth.blSize }
+          });
         }
       }
-
-      // 4. WHALE ACTIVITY: Massive single-side volume
-      const dep10s=r.depth.filter(d=> d.t>=now-10000);
-      if(dep10s.length){
-        const last=dep10s[dep10s.length-1];
-        const ratio=(last.bbSize||0.0001)/(last.blSize||0.0001);
-        const totalVol = (last.bbSize||0) + (last.blSize||0);
-        if(ratio>=4 && totalVol>500) {
-          return sig('WHALE_ACTIVITY', r.name, mkt, 0.85, `Massive backing - ${ratio.toFixed(1)}× lay, £${totalVol.toFixed(0)} volume`);
-        }
+      
+      // 4. MARKET CONFIDENCE - Multiple signals + price stability
+      const priceVolatility = hist3m.length >= 3 ? calculateVolatility(hist3m) : 1;
+      const trendStrength = hist3m.length >= 3 ? calculateTrend(hist3m) : 0;
+      
+      if (patternSettings.enabledPatterns.marketConfidence && signals.length >= 2 && priceVolatility < 0.1 && trendStrength < -0.05) {
+        const baseConfidence = signals.reduce((sum, s) => sum + s.confidence, 0) / signals.length;
+        const confidence = Math.min(0.95, baseConfidence + 0.1);
+        
+        signals.push({
+          type: 'MARKET_CONFIDENCE',
+          severity: confidence >= 0.8 ? 'CRITICAL' : 'HIGH',
+          confidence,
+          description: `Multiple signals convergence (${signals.length} patterns detected)`,
+          metrics: { numSignals: signals.length, priceVolatility, trendStrength }
+        });
       }
-
-      // 5. LATE STEAM: Strong move close to race time (if we have race time)
-      if(mkt.startTime){
+      
+      // 5. LATE STEAM - Close to race time with movement
+      if (patternSettings.enabledPatterns.lateSteam && mkt.startTime) {
         const raceTime = new Date(mkt.startTime).getTime();
         const minsToRace = (raceTime - now) / (1000 * 60);
-        if(minsToRace > 0 && minsToRace < 10 && rec3m.length>=2){
-          const start=rec3m[0].ltp, end=rec3m[rec3m.length-1].ltp;
-          if(start && end && end<=start*0.9){
-            const urgency = Math.max(0.6, 1 - (minsToRace/10));
-            return sig('LATE_STEAM', r.name, mkt, urgency, `Late steam ${Math.round((1-end/start)*100)}% - ${minsToRace.toFixed(1)}m to race`);
+        
+        if (minsToRace > 0 && minsToRace <= 15 && hist3m.length >= 2) {
+          const priceMove = (hist3m[0].ltp - currentLTP) / hist3m[0].ltp;
+          
+          if (priceMove >= 0.1) { // 10% move
+            const urgencyMultiplier = Math.max(1, (15 - minsToRace) / 15);
+            const confidence = Math.min(0.9, 0.5 + (priceMove * 2) + (urgencyMultiplier * 0.3));
+            
+            signals.push({
+              type: 'LATE_STEAM',
+              severity: minsToRace <= 5 ? 'CRITICAL' : minsToRace <= 10 ? 'HIGH' : 'MEDIUM',
+              confidence,
+              description: `${(priceMove * 100).toFixed(1)}% late move - ${minsToRace.toFixed(1)}m to race`,
+              metrics: { priceMove, minsToRace, urgencyMultiplier }
+            });
           }
         }
       }
-
-      return null;
+      
+      // Return highest confidence signal
+      return signals.length > 0 ? signals.reduce((best, current) => 
+        current.confidence > best.confidence ? current : best
+      ) : null;
     }
-    function sig(type, name, mkt, conf, desc){
-      const t = mkt.startTime? new Date(mkt.startTime):null;
-      const hhmm = t? t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
-      return { type, name, track: mkt.venue||'GB/IE', confidence: conf, description: desc, race: `${mkt.venue||'Course'} ${hhmm}` };
+    
+    // Helper functions for advanced calculations
+    function calculateVolatility(prices) {
+      if (prices.length < 2) return 0;
+      const returns = [];
+      for (let i = 1; i < prices.length; i++) {
+        returns.push((prices[i].ltp - prices[i-1].ltp) / prices[i-1].ltp);
+      }
+      const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+      const variance = returns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / returns.length;
+      return Math.sqrt(variance);
+    }
+    
+    function calculateTrend(prices) {
+      if (prices.length < 2) return 0;
+      const first = prices[0].ltp;
+      const last = prices[prices.length - 1].ltp;
+      return (last - first) / first;
+    }
+    function sig(signal, name, mkt) {
+      const t = mkt.startTime ? new Date(mkt.startTime) : null;
+      const hhmm = t ? t.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+      const minsToRace = t ? ((t.getTime() - Date.now()) / (1000 * 60)).toFixed(1) : '—';
+      
+      return {
+        ...signal,
+        name,
+        track: mkt.venue || 'Course',
+        race: `${mkt.venue || 'Course'} ${hhmm}`,
+        minsToRace,
+        timestamp: new Date(),
+        marketId: mkt.id
+      };
     }
 
     /*** --- WS CLIENT (very defensive) --- ***/
@@ -355,31 +592,20 @@
       ws.onopen = () => {
         setConn('Connected');
         backoff=1000;
-        console.log('[WS:CONNECTED] Connected to Betfair Stream API');
-        
-        // Wait for heartbeat and connection messages before making requests
-        // The heartbeat handler above will trigger market catalogue requests
-        
+        wsSend({type:'hello', client:'mobile-tracker', ts:Date.now()});
         startHB();
       };
 
       ws.onmessage = (evt) => {
         framesSeen++;
-        
-        // Enhanced debugging - log all raw messages
-        console.log('[WS:RAW]', evt.data);
-        
         const payloads = normalizeFrames(evt.data);
         for(const p of payloads){
           const msg = safeParse(p);
-          if(!msg) {
-            console.warn('[WS:PARSE_FAILED]', p);
-            continue;
-          }
+          if(!msg) continue;
 
-          console.log('[WS:PARSED]', msg);
+          if(!firstFrame){ firstFrame = msg; console.debug('[WS:first]', msg); }
 
-          // Handle Betfair Stream API heartbeat
+          // Handle heartbeat messages
           if(msg.op === 'heartbeat') {
             console.log('[WS:HEARTBEAT] Received heartbeat, responding...');
             wsSend({op: 'heartbeat', id: msg.id});
@@ -392,8 +618,8 @@
             setConn('Connected - Server handles subscriptions automatically');
             continue;
           }
-          
-          // Handle status messages
+
+          // Handle status messages  
           if(msg.op === 'status') {
             console.log('[WS:STATUS]', msg);
             if(msg.statusCode) {
@@ -402,52 +628,31 @@
             continue;
           }
 
-          if(!firstFrame){ 
-            firstFrame = msg; 
-            console.debug('[WS:FIRST_FRAME]', msg); 
+          // Handle subscription confirmation
+          if(msg.op === 'subscription' && msg.id) {
+            console.log('[WS:SUBSCRIPTION]', msg);
+            setConn('✅ Subscriptions active');
+            continue;
           }
 
           const mcArr = extractMarketChanges(msg);
           if(mcArr && mcArr.length){
-            console.debug(`[WS:MARKET_CHANGES] Processing ${mcArr.length} market changes:`, mcArr);
-            mcArr.forEach(mc => {
-              console.log('[WS:UPSERTING_MARKET]', mc);
-              store.upsert(mc);
-            });
-            if(REQUIRE_SUBSCRIBE) maybeAutoSubscribe();
-            console.debug(`[WS:STORE_SIZE] Store now has ${store.markets.size} markets`);
-          } else {
-            console.log('[WS:NO_MARKET_CHANGES] Message structure:', Object.keys(msg));
+            console.debug(`[WS] Processing ${mcArr.length} market changes`);
+            mcArr.forEach(mc => store.upsert(mc));
+            console.debug(`[WS] Store now has ${store.markets.size} markets`);
+            setConn('✅ Subscriptions active - Receiving data');
           }
 
           const statusMsg = extractStatus(msg);
-          if(statusMsg){ 
-            console.log('[WS:STATUS_MSG]', statusMsg);
-            setConn(statusMsg); 
-          }
+          if(statusMsg){ setConn(statusMsg); }
         }
-        
         // simple heartbeat UI
         const el = document.getElementById('lastUpdate');
         if(el) el.textContent = new Date().toLocaleTimeString();
         
-        // Update stats display
-        const frameCount = document.getElementById('frameCount');
-        const totalMarkets = document.getElementById('totalMarkets');
-        const totalRunners = document.getElementById('totalRunners');
-        
-        if(frameCount) frameCount.textContent = framesSeen;
-        if(totalMarkets) totalMarkets.textContent = store.markets.size;
-        if(totalRunners) {
-          let runnerCount = 0;
-          store.markets.forEach(m => runnerCount += m.runners.size);
-          totalRunners.textContent = runnerCount;
-        }
-        
-        // Force UI refresh when we get new data
-        if(store.markets.size > 0) {
-          renderMarketList();
-        }
+        // Update rate display
+        const rate = document.getElementById('rate');
+        if(rate) rate.textContent = `${framesSeen} frames`;
       };
 
       ws.onclose = () => { setConn('Disconnected'); stopHB(); scheduleReconnect(); };
@@ -469,42 +674,17 @@
     function scheduleReconnect(){ clearTimeout(reconnectTimer); reconnectTimer=setTimeout(wsConnect, backoff); backoff=Math.min(backoff*1.7,15000); }
 
     function extractMarketChanges(msg){
-      // unwrap common proxy envelopes: {op:'mcm', mc:[...]}, {mc:[...]}, {data:{...}}, {payload:{...}}, {mcm:{mc:[...]}}
-      console.log('[EXTRACT] Input message:', msg);
-      
-      let cur = msg;
-      for(let i=0;i<3;i++){
-        if(cur && cur.data) {
-          console.log('[EXTRACT] Unwrapping .data layer');
-          cur = cur.data; 
-        } else if(cur && cur.payload) {
-          console.log('[EXTRACT] Unwrapping .payload layer');
-          cur = cur.payload; 
-        } else break;
+      // Skip heartbeat messages - they don't contain market data
+      if(msg && msg.op === 'mcm' && msg.ct === 'HEARTBEAT') {
+        return null;
       }
       
-      console.log('[EXTRACT] After unwrapping:', cur);
-      
-      if(cur && cur.mcm && Array.isArray(cur.mcm.mc)) {
-        console.log('[EXTRACT] Found mcm.mc format with', cur.mcm.mc.length, 'market changes');
-        return cur.mcm.mc;
-      }
-      if(cur && cur.op==='mcm' && Array.isArray(cur.mc)) {
-        console.log('[EXTRACT] Found op:mcm format with', cur.mc.length, 'market changes');
-        return cur.mc;
-      }
-      if(cur && Array.isArray(cur.mc)) {
-        console.log('[EXTRACT] Found direct mc format with', cur.mc.length, 'market changes');
-        return cur.mc;
+      // Handle direct Betfair streaming messages with market data
+      if(msg && msg.op === 'mcm' && Array.isArray(msg.mc)) {
+        console.debug('[WS] Found mcm with', msg.mc.length, 'market changes');
+        return msg.mc;
       }
       
-      // Check for other possible Betfair formats
-      if(cur && cur.result && Array.isArray(cur.result)) {
-        console.log('[EXTRACT] Found result array format with', cur.result.length, 'items');
-        return cur.result;
-      }
-      
-      console.log('[EXTRACT] No market changes found. Available keys:', Object.keys(cur || {}));
       return null;
     }
     function extractStatus(msg){
@@ -514,42 +694,15 @@
     }
 
     function maybeAutoSubscribe(){
-      if(firstSubscribeSent) return;
-      // Choose earliest upcoming market we've seen definitions for
-      const withTime = Array.from(store.markets.values()).filter(m=>m.startTime);
-      if(!withTime.length) return;
-      const ids = withTime.sort((a,b)=>+new Date(a.startTime) - +new Date(b.startTime))
-                          .slice(0, MAX_MARKETS_TO_TRACK).map(m=>m.id);
-      if(!ids.length) return;
-      wsSend({
-        op: "marketSubscription",
-        id: 1,
-        marketFilter: { marketIds: ids },
-        priceProjection: { priceData: ["EX_BEST_OFFERS", "EX_LTP"] }
-      });
+      // Server handles all subscriptions automatically - no client action needed
+      console.log('[WS] Server handles market catalogue and subscriptions automatically');
       firstSubscribeSent = true;
-      console.debug('[WS] Sent marketSubscription for', ids);
     }
 
     function setConn(text){
       const pulse=document.getElementById('connectionPulse');
       const txt=document.getElementById('status');
-      const connStatus=document.getElementById('connection-status');
-      
-      if(txt) {
-        if(text.includes('Connected') || text.includes('Live')) {
-          txt.textContent = '✅ Live data stream active';
-          txt.className = 'status';
-        } else if(text.includes('Connecting')) {
-          txt.textContent = '📡 Connecting to Betfair stream...';
-          txt.className = 'status info';
-        } else {
-          txt.textContent = '❌ ' + text;
-          txt.className = 'status warning';
-        }
-      }
-      
-      if(connStatus) connStatus.textContent = text;
+      if(txt) txt.textContent = text;
       if(pulse) pulse.style.background = (text.includes('Connected')||text.includes('Live')) ? '#4CAF50' : '#FF7043';
     }
 
@@ -585,7 +738,6 @@
       const store = window.__BF_STORE__;
       if (!store || !store.markets) {
         console.debug('[UI] Store not available yet');
-        list.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Loading markets...</div>';
         return;
       }
       
@@ -596,18 +748,11 @@
       });
 
       console.debug(`[UI] Rendering ${items.length} markets`);
-      console.debug('[UI] Available markets:', items.map(m => ({id: m.id, venue: m.venue, name: m.name, runners: m.runners.size})));
-
-      if (items.length === 0) {
-        list.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">No racing markets available.<br><small>Waiting for Betfair data...</small></div>';
-        return;
-      }
 
       for (const m of items) {
         const title = [m.venue, m.name].filter(Boolean).join(' · ');
         const time = m.startTime ? new Date(m.startTime) : null;
         const off = time ? time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-        const runnerCount = m.runners ? m.runners.size : 0;
 
         // Filter
         if (q) {
@@ -616,14 +761,16 @@
         }
 
         const div = document.createElement('div');
-        div.className = 'market-item';
+        div.className = 'row';
         div.role = 'option';
         div.dataset.id = m.id;
         div.onclick = () => selectMarket(m.id, true);
         div.innerHTML = `
-          <div class="market-time">${off}</div>
-          <div class="market-name-text">${title || m.id}</div>
-          <div class="runner-count">${runnerCount} runners</div>
+          <div class="mkt">
+            <div>${title || m.id}</div>
+            <div class="small muted">Off ${off}</div>
+          </div>
+          <div class="pill mono">${m.id}</div>
         `;
         list.appendChild(div);
       }
@@ -727,23 +874,45 @@
         startScanning();
       }
     });
+    
+    // Settings button
+    document.getElementById('settingsButton').addEventListener('click', () => {
+      const panel = document.getElementById('settings-panel');
+      if (panel.style.display === 'none') {
+        loadSettingsUI();
+        panel.style.display = 'block';
+      } else {
+        panel.style.display = 'none';
+      }
+    });
+    
+    // Clear signals button
+    document.getElementById('clearSignalsButton').addEventListener('click', () => {
+      const list = document.getElementById('signals-list');
+      list.innerHTML = '';
+      alerts.length = 0;
+      signalHistory.clear();
+      updateSignalsCount(0);
+    });
 
     // =======================
     // INITIALIZATION
     // =======================
-    // connect WS for real Betfair data
-    document.getElementById('status').textContent = 'Connecting to Betfair delayed feed...';
-    window.__BF_WS_CONNECT__();
     
-    // Update connection status display
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-GB', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    document.getElementById('connection-status').textContent = `${todayStr} - Betfair Delayed Feed`;
+    // Initialize all systems
+    initializeSettings();
+    initializeScanner();
+    initializeFilters();
+    initializeCalculator();
+    initializePerformanceTracking();
+    initializeKeyboardShortcuts();
+    
+    // Show signals panel immediately
+    document.getElementById('signals-panel').style.display = 'block';
+    
+    // connect WS + translate signals into your alerts
+    document.getElementById('status').textContent = 'Connecting…';
+    window.__BF_WS_CONNECT__();
 
     // turn detector signals into your alert cards
     window.__BF_STORE__.onSignal((sig)=>{
@@ -757,26 +926,8 @@
         race: sig.race
       });
       const ct = document.getElementById('status');
-      if (ct) {
-        ct.textContent = '🚨 Pattern detected - Scanning Live';
-        ct.className = 'status';
-      }
-      
-      // Update pattern count
-      const patternsFound = document.getElementById('patternsFound');
-      if (patternsFound) patternsFound.textContent = alerts.length;
+      if (ct) ct.textContent = 'Scanning Live';
     });
-
-    // Real Betfair data will be populated via WebSocket connection
-    // The existing WebSocket client will handle market data from Betfair's delayed feed
-    
-    // Initialize UI immediately 
-    renderMarketList();
-    
-    // Add debug info to help troubleshoot
-    console.log('[DEBUG] App initialized, WebSocket connecting to:', WS_URL);
-    console.log('[DEBUG] Store available:', !!window.__BF_STORE__);
-    console.log('[DEBUG] Initial market count:', window.__BF_STORE__ ? window.__BF_STORE__.markets.size : 'Store not available');
 
     // Auto-refresh market list when new data arrives
     let lastMarketUpdate = 0;
@@ -785,115 +936,239 @@
       if (store && store.markets.size > 0) {
         const now = Date.now();
         if (now - lastMarketUpdate > 2000) { // Update every 2 seconds
-          renderMarketList();
+          renderEnhancedMarketList();
           lastMarketUpdate = now;
         }
       }
     }, 2000);
 
-    // Simple alert system (you can enhance this)
+    // Professional Trading System
     const alerts = [];
+    const signalHistory = new Map(); // marketId -> array of signals
+    const performanceMetrics = {
+      totalSignals: 0,
+      signalsByType: {},
+      signalsBySeverity: {},
+      averageConfidence: 0,
+      dailyPL: 0,
+      winRate: 0,
+      totalTrades: 0,
+      winningTrades: 0
+    };
     let isScanning = false;
+    let currentFilter = 'all';
+    let scannerSettings = {
+      minLiquidity: 2000,
+      maxTime: 120
+    };
 
     function addAlert(alert) {
       if (!isScanning) return; // Only add alerts when scanning is active
+      
+      // Add to main alerts array
       alerts.unshift(alert);
-      if (alerts.length > 50) alerts.pop(); // keep last 50
+      if (alerts.length > 50) alerts.pop();
+      
+      // Track historical data for analysis
+      if (!signalHistory.has(alert.marketId)) {
+        signalHistory.set(alert.marketId, []);
+      }
+      signalHistory.get(alert.marketId).push({
+        ...alert,
+        detectionTime: Date.now()
+      });
+      
+      // Update performance metrics
+      updatePerformanceMetrics(alert);
+      
       console.log('🚨 Signal detected:', alert);
       
-      // Pattern alerts are now shown in main view
+      // Show signals panel if first alert
+      const panel = document.getElementById('signals-panel');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+      }
       
-      // Add visual signal
+      // Add visual signal with enhanced data
       addVisualSignal(alert);
       
-      // Play notification sound (if enabled)
-      playNotificationSound(alert.confidence);
-      
-      // Show desktop notification (if permission granted)
+      // Show desktop notification with severity info
       if (Notification.permission === 'granted') {
-        new Notification(`🏇 ${alert.patterns[0].type}`, {
-          body: `${alert.name} - ${alert.patterns[0].description}`,
+        const severityIcon = alert.severity === 'CRITICAL' ? '🚨' : alert.severity === 'HIGH' ? '⚡' : '📊';
+        new Notification(`${severityIcon} ${alert.type.replace('_', ' ')}`, {
+          body: `${alert.name} - ${alert.description}`,
           icon: '/favicon.ico',
-          tag: alert.id
+          tag: alert.id,
+          requireInteraction: alert.severity === 'CRITICAL'
         });
       }
+      
+      // Auto-cleanup old historical data (keep last 24 hours)
+      cleanupOldSignals();
+    }
+    
+    function updatePerformanceMetrics(alert) {
+      performanceMetrics.totalSignals++;
+      
+      // Track by type
+      const type = alert.type;
+      performanceMetrics.signalsByType[type] = (performanceMetrics.signalsByType[type] || 0) + 1;
+      
+      // Track by severity
+      const severity = alert.severity;
+      performanceMetrics.signalsBySeverity[severity] = (performanceMetrics.signalsBySeverity[severity] || 0) + 1;
+      
+      // Update average confidence (rolling average)
+      const oldAvg = performanceMetrics.averageConfidence;
+      const newCount = performanceMetrics.totalSignals;
+      performanceMetrics.averageConfidence = ((oldAvg * (newCount - 1)) + alert.confidence) / newCount;
+      
+      // Log metrics every 10 signals
+      if (performanceMetrics.totalSignals % 10 === 0) {
+        console.log('[METRICS]', performanceMetrics);
+      }
+    }
+    
+    function cleanupOldSignals() {
+      const cutoff = Date.now() - (24 * 60 * 60 * 1000); // 24 hours ago
+      
+      for (const [marketId, signals] of signalHistory) {
+        const filtered = signals.filter(s => s.detectionTime >= cutoff);
+        if (filtered.length === 0) {
+          signalHistory.delete(marketId);
+        } else {
+          signalHistory.set(marketId, filtered);
+        }
+      }
+    }
+    
+    // Calculate probability score based on multiple signals for same horse
+    function calculateWinProbability(marketId, runnerName) {
+      const marketSignals = signalHistory.get(marketId) || [];
+      const runnerSignals = marketSignals.filter(s => s.name === runnerName);
+      
+      if (runnerSignals.length === 0) return 0;
+      
+      let score = 0;
+      let weightedSum = 0;
+      
+      for (const signal of runnerSignals) {
+        const timeWeight = Math.max(0.1, 1 - ((Date.now() - signal.detectionTime) / (30 * 60 * 1000))); // Decay over 30 mins
+        const severityWeight = signal.severity === 'CRITICAL' ? 1.0 : signal.severity === 'HIGH' ? 0.7 : 0.4;
+        const typeWeight = getSignalTypeWeight(signal.type);
+        
+        const signalScore = signal.confidence * timeWeight * severityWeight * typeWeight;
+        score += signalScore;
+        weightedSum += timeWeight * severityWeight * typeWeight;
+      }
+      
+      return weightedSum > 0 ? Math.min(0.95, score / weightedSum) : 0;
+    }
+    
+    function getSignalTypeWeight(type) {
+      const weights = {
+        'STEAM_MOVE': 0.9,
+        'LATE_STEAM': 0.95,
+        'VOLUME_SPIKE': 0.7,
+        'BACK_PRESSURE': 0.8,
+        'MARKET_CONFIDENCE': 0.85
+      };
+      return weights[type] || 0.5;
     }
 
     function addVisualSignal(alert) {
-      const container = document.getElementById('patternAlerts');
-      const pattern = alert.patterns[0];
+      const list = document.getElementById('signals-list');
+      
+      // Remove "no signals" placeholder if it exists
+      const noSignalsEl = list.querySelector('.no-signals');
+      if (noSignalsEl) noSignalsEl.remove();
+      
+      const pattern = alert.patterns && alert.patterns[0] ? alert.patterns[0] : { type: alert.type, description: alert.description };
       const confidence = Math.round(alert.confidence * 100);
       
-      const signalClass = pattern.type.toLowerCase().replace('_', '-');
+      const signalClass = alert.type.toLowerCase().replace('_', '-');
+      const severityClass = alert.severity ? `severity-${alert.severity.toLowerCase()}` : '';
       const timeStr = alert.timestamp.toLocaleTimeString();
       
-      // Create alerts container if it doesn't exist
-      if (!container.innerHTML.includes('Live Pattern Alerts')) {
-        container.innerHTML = '<h3 style="margin-bottom: 15px; text-align: center;">🚨 Live Pattern Alerts</h3>';
-      }
+      // Add time to race if available
+      const timeToRace = alert.minsToRace !== '—' ? ` • ${alert.minsToRace}m to race` : '';
+      
+      // Calculate expected value for display
+      const expectedValue = calculateExpectedValue(alert);
+      const evDisplay = expectedValue > 0 ? `+${(expectedValue * 100).toFixed(1)}%` : `${(expectedValue * 100).toFixed(1)}%`;
+      const evClass = expectedValue > 0 ? 'positive' : 'negative';
       
       const div = document.createElement('div');
-      div.className = `signal-item signal-${signalClass}`;
+      div.className = `signal-item signal-${signalClass} ${severityClass}`;
+      div.dataset.signalId = alert.id;
       div.innerHTML = `
         <div class="signal-header">
-          <div style="font-weight: bold;">🏁 ${alert.race}</div>
-          <div class="signal-conf">${confidence}%</div>
+          <span class="signal-type">${alert.type.replace('_', ' ')}</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            ${alert.severity ? `<span class="pill" style="background:${getSeverityColor(alert.severity)}; color:white; font-size:10px;">${alert.severity}</span>` : ''}
+            <span class="pill" style="background:${expectedValue > 0 ? '#2ecc71' : '#e74c3c'}; color:white; font-size:10px;">EV: ${evDisplay}</span>
+            <span class="signal-conf">${confidence}%</span>
+          </div>
         </div>
-        <div class="signal-desc"><strong>${alert.name}</strong> - ${pattern.description}</div>
-        <div style="margin: 8px 0;">
-          <span class="signal-type">${pattern.type.replace('_', ' ')}</span>
+        <div class="signal-desc"><strong>${alert.name}</strong> - ${alert.description}</div>
+        <div class="signal-meta">${alert.race} • ${timeStr}${timeToRace}</div>
+        ${alert.metrics ? `<div class="signal-meta" style="margin-top:4px; font-family:monospace; font-size:10px;">${formatMetrics(alert.metrics)}</div>` : ''}
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button class="btn" style="padding:4px 8px; font-size:11px; background:#3498db;" onclick="fillCalculatorFromSignal('${alert.id}')">📊 Calculate Stake</button>
+          <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="selectMarket('${alert.marketId}', true)">🎯 View Market</button>
         </div>
-        <div class="signal-meta">${timeStr}</div>
       `;
       
-      container.appendChild(div);
+      list.insertBefore(div, list.firstChild);
       
-      // Keep only last 15 visual signals
-      const signals = container.querySelectorAll('.signal-item');
-      while (signals.length > 15) {
-        signals[0].remove();
+      // Keep only last 15 visual signals due to richer content
+      while (list.children.length > 15) {
+        list.removeChild(list.lastChild);
       }
+      
+      // Update signals count and apply current filter
+      updateSignalsCount(alerts.length);
+      applySignalFilter();
+    }
+    
+    function updateSignalsCount(count) {
+      const counter = document.getElementById('signals-count');
+      if (counter) counter.textContent = count;
+    }
+    
+    function getSeverityColor(severity) {
+      switch(severity.toLowerCase()) {
+        case 'critical': return '#e74c3c';
+        case 'high': return '#f39c12';
+        case 'medium': return '#3498db';
+        default: return '#95a5a6';
+      }
+    }
+    
+    function formatMetrics(metrics) {
+      const parts = [];
+      if (metrics.priceDrop) parts.push(`Drop: ${(metrics.priceDrop * 100).toFixed(1)}%`);
+      if (metrics.volumeMultiplier) parts.push(`Vol: ${metrics.volumeMultiplier.toFixed(1)}x`);
+      if (metrics.backRatio) parts.push(`Back: ${(metrics.backRatio * 100).toFixed(0)}%`);
+      if (metrics.totalLiquidity) parts.push(`Liq: £${metrics.totalLiquidity.toFixed(0)}`);
+      return parts.join(' | ');
     }
 
-    function playNotificationSound(confidence) {
-      // Create audio context and play beep based on confidence
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        // Higher confidence = higher pitch
-        osc.frequency.setValueAtTime(300 + (confidence * 400), ctx.currentTime);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-        
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.1);
-      } catch (e) {
-        // Audio not supported, fail silently
-      }
-    }
 
     function startScanning() {
       isScanning = true;
       const btn = document.getElementById('scanButton');
-      btn.textContent = '⏹️ Stop Pattern Scanning';
+      btn.textContent = '⏹️ Stop Scanning';
       btn.classList.add('scanning');
-      document.getElementById('status').textContent = '🔍 Analyzing live racing patterns...';
+      document.getElementById('status').textContent = 'Scanning Live';
       
       // Request notification permission
       if (Notification.permission === 'default') {
         Notification.requestPermission();
       }
       
-      // Pattern detection will run on real Betfair data as it arrives via WebSocket
+      // no timers; signals arrive via WebSocket/store
     }
-
-    // Pattern detection now runs automatically on real Betfair data via the existing detectSignals() function
-    // which is called in the BetfairStore.upsert() method when new market data arrives
 
     function stopScanning() {
       isScanning = false;
@@ -903,6 +1178,442 @@
       document.getElementById('status').textContent = 'Ready';
     }
 
+    // Settings Management Functions
+    function loadSettingsUI() {
+      document.getElementById('steamThreshold').value = patternSettings.steamThreshold * 100;
+      document.getElementById('volumeThreshold').value = patternSettings.volumeThreshold;
+      document.getElementById('backThreshold').value = patternSettings.backThreshold * 100;
+      document.getElementById('liquidityThreshold').value = patternSettings.liquidityThreshold;
+      
+      document.getElementById('enableSteam').checked = patternSettings.enabledPatterns.steamMove;
+      document.getElementById('enableVolume').checked = patternSettings.enabledPatterns.volumeSpike;
+      document.getElementById('enablePressure').checked = patternSettings.enabledPatterns.backPressure;
+      document.getElementById('enableConfidence').checked = patternSettings.enabledPatterns.marketConfidence;
+      document.getElementById('enableLate').checked = patternSettings.enabledPatterns.lateSteam;
+      
+      updateSettingsLabels();
+      attachSettingsHandlers();
+    }
+    
+    function updateSettingsLabels() {
+      document.getElementById('steamValue').textContent = Math.round(document.getElementById('steamThreshold').value) + '%';
+      document.getElementById('volumeValue').textContent = parseFloat(document.getElementById('volumeThreshold').value).toFixed(1) + 'x';
+      document.getElementById('backValue').textContent = Math.round(document.getElementById('backThreshold').value) + '%';
+      document.getElementById('liquidityValue').textContent = '£' + document.getElementById('liquidityThreshold').value;
+    }
+    
+    function attachSettingsHandlers() {
+      // Range sliders
+      ['steamThreshold', 'volumeThreshold', 'backThreshold', 'liquidityThreshold'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateSettingsLabels);
+      });
+      
+      // Save/reset buttons
+      document.getElementById('saveSettings').addEventListener('click', saveSettings);
+      document.getElementById('resetSettings').addEventListener('click', resetSettings);
+    }
+    
+    function saveSettings() {
+      patternSettings.steamThreshold = parseFloat(document.getElementById('steamThreshold').value) / 100;
+      patternSettings.volumeThreshold = parseFloat(document.getElementById('volumeThreshold').value);
+      patternSettings.backThreshold = parseFloat(document.getElementById('backThreshold').value) / 100;
+      patternSettings.liquidityThreshold = parseInt(document.getElementById('liquidityThreshold').value);
+      
+      patternSettings.enabledPatterns.steamMove = document.getElementById('enableSteam').checked;
+      patternSettings.enabledPatterns.volumeSpike = document.getElementById('enableVolume').checked;
+      patternSettings.enabledPatterns.backPressure = document.getElementById('enablePressure').checked;
+      patternSettings.enabledPatterns.marketConfidence = document.getElementById('enableConfidence').checked;
+      patternSettings.enabledPatterns.lateSteam = document.getElementById('enableLate').checked;
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem('patternSettings', JSON.stringify(patternSettings));
+        alert('✅ Settings saved successfully!');
+      } catch (e) {
+        alert('❌ Failed to save settings');
+      }
+    }
+    
+    function resetSettings() {
+      patternSettings = {
+        steamThreshold: 0.15,
+        volumeThreshold: 3.0,
+        backThreshold: 0.70,
+        liquidityThreshold: 200,
+        enabledPatterns: {
+          steamMove: true,
+          volumeSpike: true,
+          backPressure: true,
+          marketConfidence: true,
+          lateSteam: true
+        }
+      };
+      loadSettingsUI();
+      alert('🔄 Settings reset to defaults');
+    }
+    
+    // Load settings on startup
+    function initializeSettings() {
+      try {
+        const saved = localStorage.getItem('patternSettings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          patternSettings = { ...patternSettings, ...parsed };
+        }
+      } catch (e) {
+        console.warn('Failed to load saved settings, using defaults');
+      }
+    }
+
+    // === PROFESSIONAL TRADING INTERFACE === //
+    
+    // Market Scanner Functions
+    function initializeScanner() {
+      const liquiditySlider = document.getElementById('minLiquidity');
+      const timeSlider = document.getElementById('maxTime');
+      const liquidityDisplay = document.getElementById('liquidityDisplay');
+      const timeDisplay = document.getElementById('timeDisplay');
+      
+      liquiditySlider.addEventListener('input', (e) => {
+        scannerSettings.minLiquidity = parseInt(e.target.value);
+        liquidityDisplay.textContent = e.target.value;
+      });
+      
+      timeSlider.addEventListener('input', (e) => {
+        scannerSettings.maxTime = parseInt(e.target.value);
+        timeDisplay.textContent = e.target.value;
+      });
+      
+      document.getElementById('quickScan').addEventListener('click', scanQualityMarkets);
+    }
+    
+    function scanQualityMarkets() {
+      const store = window.__BF_STORE__;
+      if (!store || !store.markets) return;
+      
+      const now = Date.now();
+      const qualityMarkets = Array.from(store.markets.values()).filter(m => {
+        const timeToRace = m.startTime ? (new Date(m.startTime).getTime() - now) / (1000 * 60) : 999;
+        const estimatedLiquidity = estimateMarketLiquidity(m);
+        
+        return timeToRace > 0 && 
+               timeToRace <= scannerSettings.maxTime && 
+               estimatedLiquidity >= scannerSettings.minLiquidity &&
+               (m.venue && (m.venue.includes('GB') || m.venue.includes('IRE')));
+      }).sort((a, b) => estimateMarketLiquidity(b) - estimateMarketLiquidity(a));
+      
+      console.log(`🎯 Quality scan found ${qualityMarkets.length} markets`);
+      renderEnhancedMarketList(qualityMarkets.slice(0, 10)); // Show top 10
+    }
+    
+    function estimateMarketLiquidity(market) {
+      // Estimate liquidity based on runner count and activity
+      const runnerCount = market.runners ? market.runners.size : 0;
+      const baseEstimate = runnerCount * 300; // £300 per runner baseline
+      return Math.max(baseEstimate, scannerSettings.minLiquidity);
+    }
+    
+    function renderEnhancedMarketList(markets = null) {
+      const list = document.getElementById('market-list');
+      list.innerHTML = '';
+      
+      const store = window.__BF_STORE__;
+      if (!store || !store.markets) return;
+      
+      const itemsToRender = markets || Array.from(store.markets.values()).sort((a, b) => {
+        const ta = a.startTime ? +new Date(a.startTime) : Infinity;
+        const tb = b.startTime ? +new Date(b.startTime) : Infinity;
+        return ta - tb;
+      });
+      
+      itemsToRender.forEach(m => {
+        const now = Date.now();
+        const timeToRace = m.startTime ? Math.max(0, (new Date(m.startTime).getTime() - now) / (1000 * 60)) : 999;
+        const liquidity = estimateMarketLiquidity(m);
+        
+        const div = document.createElement('div');
+        div.className = 'market-item';
+        div.dataset.id = m.id;
+        div.onclick = () => selectMarket(m.id, true);
+        
+        div.innerHTML = `
+          <div class="market-info">
+            <div class="market-name">${m.venue || 'Course'} • ${m.name || 'Race'}</div>
+            <div class="market-time">${m.startTime ? new Date(m.startTime).toLocaleTimeString() : 'TBC'}</div>
+          </div>
+          <div class="market-stats">
+            <div class="liquidity-badge">£${(liquidity/1000).toFixed(1)}K</div>
+            <div class="time-badge">${timeToRace.toFixed(0)}m</div>
+          </div>
+        `;
+        
+        list.appendChild(div);
+      });
+    }
+    
+    // Smart Filter Functions
+    function initializeFilters() {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentFilter = btn.dataset.filter;
+          applySignalFilter();
+        });
+      });
+    }
+    
+    function applySignalFilter() {
+      const signalItems = document.querySelectorAll('.signal-item');
+      let visibleCount = 0;
+      
+      signalItems.forEach(item => {
+        const signal = alerts.find(a => a.id == item.dataset.signalId);
+        let shouldShow = true;
+        
+        if (currentFilter !== 'all' && signal) {
+          switch(currentFilter) {
+            case 'high-confidence':
+              shouldShow = signal.confidence >= 0.8;
+              break;
+            case 'positive-ev':
+              shouldShow = calculateExpectedValue(signal) > 0;
+              break;
+            case 'critical':
+              shouldShow = signal.severity === 'CRITICAL';
+              break;
+            case 'late-steam':
+              shouldShow = signal.type === 'LATE_STEAM';
+              break;
+            case 'whale':
+              shouldShow = signal.type === 'BACK_PRESSURE' && signal.metrics?.totalLiquidity > 1000;
+              break;
+          }
+        }
+        
+        item.style.display = shouldShow ? 'block' : 'none';
+        if (shouldShow) visibleCount++;
+      });
+      
+      updateSignalsCount(visibleCount);
+    }
+    
+    // Betting Calculator Functions
+    function initializeCalculator() {
+      ['bankroll', 'maxStake', 'winProb', 'decimalOdds'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculateStakes);
+      });
+      calculateStakes(); // Initial calculation
+    }
+    
+    function calculateStakes() {
+      const bankroll = parseFloat(document.getElementById('bankroll').value) || 1000;
+      const maxRisk = parseFloat(document.getElementById('maxStake').value) || 5;
+      const winProb = parseFloat(document.getElementById('winProb').value) || 0;
+      const odds = parseFloat(document.getElementById('decimalOdds').value) || 0;
+      
+      let kellyStake = 0;
+      let expectedValue = 0;
+      
+      if (winProb > 0 && odds > 1) {
+        const winProbDecimal = winProb / 100;
+        const loseProbDecimal = 1 - winProbDecimal;
+        
+        // Kelly Criterion: (bp - q) / b
+        // Where b = odds - 1, p = win probability, q = lose probability
+        const b = odds - 1;
+        const kellyFraction = (winProbDecimal * b - loseProbDecimal) / b;
+        
+        // Cap Kelly at max risk setting
+        const cappedKelly = Math.max(0, Math.min(kellyFraction, maxRisk / 100));
+        kellyStake = bankroll * cappedKelly;
+        
+        // Expected Value calculation
+        expectedValue = (winProbDecimal * (odds - 1) - loseProbDecimal) * 100;
+      }
+      
+      document.getElementById('kellyStake').textContent = '£' + kellyStake.toFixed(2);
+      document.getElementById('expectedValue').textContent = expectedValue.toFixed(2) + '%';
+      document.getElementById('expectedValue').className = 'result-value ' + (expectedValue > 0 ? 'positive' : 'negative');
+    }
+    
+    function calculateExpectedValue(signal) {
+      // Estimate expected value based on signal properties
+      const baseEV = (signal.confidence - 0.5) * 0.2; // Convert confidence to rough EV
+      const severityBonus = signal.severity === 'CRITICAL' ? 0.1 : signal.severity === 'HIGH' ? 0.05 : 0;
+      return baseEV + severityBonus;
+    }
+    
+    // Performance Tracking Functions
+    function initializePerformanceTracking() {
+      updatePerformanceDashboard();
+      
+      document.getElementById('exportData').addEventListener('click', exportTradingData);
+      document.getElementById('resetMetrics').addEventListener('click', () => {
+        if (confirm('Reset all performance metrics? This cannot be undone.')) {
+          resetPerformanceMetrics();
+        }
+      });
+      
+      // Update metrics every 30 seconds
+      setInterval(updatePerformanceDashboard, 30000);
+    }
+    
+    function updatePerformanceDashboard() {
+      const today = new Date().toDateString();
+      const todaySignals = alerts.filter(a => new Date(a.timestamp).toDateString() === today);
+      
+      // Calculate metrics
+      const winRate = performanceMetrics.totalTrades > 0 ? 
+        (performanceMetrics.winningTrades / performanceMetrics.totalTrades * 100) : 0;
+      
+      const avgConfidence = todaySignals.length > 0 ? 
+        todaySignals.reduce((sum, s) => sum + s.confidence, 0) / todaySignals.length * 100 : 0;
+      
+      const bestPattern = Object.entries(performanceMetrics.signalsByType)
+        .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None';
+      
+      const roi = performanceMetrics.totalTrades > 0 ? 
+        (performanceMetrics.dailyPL / (performanceMetrics.totalTrades * 50)) * 100 : 0; // Assume £50 avg stake
+      
+      // Update display
+      document.getElementById('win-rate').textContent = winRate.toFixed(1) + '%';
+      document.getElementById('profit-loss').textContent = '£' + performanceMetrics.dailyPL.toFixed(2);
+      document.getElementById('avg-confidence').textContent = avgConfidence.toFixed(1) + '%';
+      document.getElementById('signals-today').textContent = todaySignals.length.toString();
+      document.getElementById('best-pattern').textContent = bestPattern.replace('_', ' ');
+      document.getElementById('roi').textContent = roi.toFixed(1) + '%';
+      
+      // Update change indicators (simplified)
+      updateMetricChange('pl-change', performanceMetrics.dailyPL);
+      updateMetricChange('wr-change', winRate - 50); // Compare to 50% baseline
+      updateMetricChange('roi-change', roi);
+    }
+    
+    function updateMetricChange(elementId, value) {
+      const element = document.getElementById(elementId);
+      if (!element) return;
+      
+      const isPositive = value > 0;
+      element.className = 'metric-change ' + (isPositive ? 'positive' : 'negative');
+      element.textContent = (isPositive ? '+' : '') + value.toFixed(1) + (elementId.includes('roi') || elementId.includes('wr') ? '%' : '');
+    }
+    
+    function exportTradingData() {
+      const data = alerts.map(signal => ({
+        timestamp: signal.timestamp.toISOString(),
+        type: signal.type,
+        name: signal.name,
+        confidence: signal.confidence,
+        severity: signal.severity,
+        description: signal.description,
+        track: signal.track,
+        minsToRace: signal.minsToRace,
+        expectedValue: calculateExpectedValue(signal)
+      }));
+      
+      const csv = convertToCSV(data);
+      downloadCSV(csv, `betting-patterns-${new Date().toISOString().split('T')[0]}.csv`);
+    }
+    
+    function convertToCSV(data) {
+      const header = Object.keys(data[0]).join(',');
+      const rows = data.map(row => Object.values(row).join(','));
+      return [header, ...rows].join('\\n');
+    }
+    
+    function downloadCSV(csv, filename) {
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('hidden', '');
+      a.setAttribute('href', url);
+      a.setAttribute('download', filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    
+    function resetPerformanceMetrics() {
+      Object.assign(performanceMetrics, {
+        totalSignals: 0,
+        signalsByType: {},
+        signalsBySeverity: {},
+        averageConfidence: 0,
+        dailyPL: 0,
+        winRate: 0,
+        totalTrades: 0,
+        winningTrades: 0
+      });
+      updatePerformanceDashboard();
+    }
+    
+    // Signal-Calculator Integration
+    function fillCalculatorFromSignal(signalId) {
+      const signal = alerts.find(a => a.id == signalId);
+      if (!signal) return;
+      
+      // Estimate win probability from confidence and type
+      let winProb = signal.confidence * 85; // Convert to percentage (max 85%)
+      
+      // Adjust based on signal type
+      if (signal.type === 'LATE_STEAM') winProb *= 1.1;
+      if (signal.severity === 'CRITICAL') winProb *= 1.05;
+      
+      // Estimate odds based on win probability (rough conversion)
+      const estimatedOdds = Math.max(1.1, Math.min(50, 1 / (winProb / 100)));
+      
+      // Fill calculator inputs
+      document.getElementById('winProb').value = Math.min(95, winProb).toFixed(0);
+      document.getElementById('decimalOdds').value = estimatedOdds.toFixed(2);
+      
+      // Trigger calculation
+      calculateStakes();
+      
+      // Visual feedback
+      const calcSection = document.querySelector('.betting-calculator');
+      calcSection.scrollIntoView({ behavior: 'smooth' });
+      calcSection.style.boxShadow = '0 0 20px rgba(52,152,219,0.5)';
+      setTimeout(() => calcSection.style.boxShadow = '', 2000);
+    }
+    
+    // Keyboard Shortcuts
+    function initializeKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return; // Don't trigger when typing in inputs
+        
+        switch(e.key.toLowerCase()) {
+          case 's':
+            e.preventDefault();
+            document.getElementById('scanButton').click();
+            break;
+          case 'c':
+            e.preventDefault();
+            document.getElementById('clearSignalsButton').click();
+            break;
+          case 'f':
+            e.preventDefault();
+            document.getElementById('search').focus();
+            break;
+          case '1':
+            e.preventDefault();
+            document.querySelector('[data-filter="high-confidence"]').click();
+            break;
+          case '2':
+            e.preventDefault();
+            document.querySelector('[data-filter="positive-ev"]').click();
+            break;
+          case '3':
+            e.preventDefault();
+            document.querySelector('[data-filter="critical"]').click();
+            break;
+          case 'escape':
+            document.getElementById('settings-panel').style.display = 'none';
+            break;
+        }
+      });
+    }
+
   </script>
 </body>
-</html><!-- Force rebuild 20 Aug 2025 14:55:34 -->
+</html>
