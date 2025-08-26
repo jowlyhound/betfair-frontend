@@ -269,6 +269,13 @@
                 
                 // Update UI every 10 seconds
                 setInterval(() => this.updateUI(), 10000);
+                
+                // Request fresh market data every 30 seconds
+                setInterval(() => {
+                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                        this.ws.send(JSON.stringify({ type: 'get_markets' }));
+                    }
+                }, 30000);
             }
 
             connect() {
@@ -298,6 +305,11 @@
                         type: 'hello',
                         client: 'winner-predictor',
                         timestamp: Date.now()
+                    }));
+                    
+                    // Request market data
+                    this.ws.send(JSON.stringify({
+                        type: 'get_markets'
                     }));
                 };
 
