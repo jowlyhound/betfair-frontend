@@ -494,6 +494,9 @@
           updateConnectionStatus('connected', 'Connected');
           currentWsIndex = 0; // Reset to preferred URL on successful connection
           
+          // Send hello message like backend expects
+          ws.send(JSON.stringify({type:'hello', client:'winner-predictor', ts:Date.now()}));
+          
           // Request initial data
           requestRaceData();
           requestStats();
@@ -573,7 +576,96 @@
             updateConnectionStatus('connected', 'Connected');
           } else if (data.op === 'status') {
             console.log('[WS] Betfair status:', data.statusCode);
+          } else if (data.type === 'welcome') {
+            console.log('[WS] Backend welcome message received');
+            updateConnectionStatus('connected', 'Connected');
+          } else if (data.type === 'market_data' && data.markets) {
+            console.log('[WS] Received market data:', data.markets.length, 'markets');
+            convertBackendMarketData(data.markets);
+          } else {
+            console.log('[WS] Unknown message type:', data.type || data.op, data);
           }
+      }
+    }
+
+    // Convert backend market_data format to winner prediction format
+    function convertBackendMarketData(markets) {
+      if (!markets || markets.length === 0) return;
+      
+      const convertedRaces = [];
+      
+      markets.forEach(market => {
+        if (!market.id) return;
+        
+        // Filter for UK/Ireland racing only
+        const venue = market.venue || market.name || '';
+        if (!venue) return;
+        
+        // Create race time from start time
+        const raceTime = market.startTime ? new Date(market.startTime) : new Date();
+        const runners = market.runners || [];
+        
+        // Find best runner based on prices
+        let topPrediction = null;
+        let highestConfidence = 0;
+        
+        if (runners.length > 0) {
+          runners.forEach(runner => {
+            if (!runner.lastPrice) return;
+            
+            const price = parseFloat(runner.lastPrice);
+            if (price > 0) {
+              // Calculate win probability from price
+              const winProbability = Math.min(0.95, 1 / price);
+              const confidence = winProbability * 100;
+              
+              // Add bonuses for volume and other indicators
+              let patternBonus = 0;
+              if (runner.totalVolume && runner.totalVolume > 1000) patternBonus += 10;
+              if (runner.bestBack && runner.bestLay) {
+                const spread = runner.bestLay - runner.bestBack;
+                if (spread < 0.02) patternBonus += 15; // Tight spread = confidence
+              }
+              
+              const finalConfidence = Math.min(95, confidence + patternBonus);
+              
+              if (finalConfidence > highestConfidence) {
+                highestConfidence = finalConfidence;
+                topPrediction = {
+                  name: runner.name || `Runner ${runner.id}`,
+                  winProbability: finalConfidence / 100
+                };
+              }
+            }
+          });
+        }
+        
+        // Default prediction if no runner data
+        if (!topPrediction && runners.length > 0) {
+          const firstRunner = runners[0];
+          topPrediction = {
+            name: firstRunner.name || `Runner ${firstRunner.id}`,
+            winProbability: 0.5
+          };
+        }
+        
+        const convertedRace = {
+          marketId: market.id,
+          venue: venue,
+          raceName: market.name || 'Race',
+          raceTime: raceTime.toISOString(),
+          runnerCount: runners.length,
+          topPrediction: topPrediction
+        };
+        
+        convertedRaces.push(convertedRace);
+      });
+      
+      if (convertedRaces.length > 0) {
+        console.log(`[WS] Converted ${convertedRaces.length} backend markets to race format`);
+        races = convertedRaces;
+        renderRaces();
+        updateStats();
       }
     }
 
