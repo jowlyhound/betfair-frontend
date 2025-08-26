@@ -264,8 +264,6 @@
                     'ws://194.164.95.216:10000'
                 ];
                 
-                // Load demo data if no connection after 5 seconds
-                this.demoTimeout = setTimeout(() => this.loadDemoData(), 5000);
                 
                 this.connect();
                 
@@ -294,11 +292,6 @@
                     this.updateConnectionStatus(true);
                     this.reconnectAttempts = 0;
                     
-                    // Cancel demo mode
-                    if (this.demoTimeout) {
-                        clearTimeout(this.demoTimeout);
-                        this.demoTimeout = null;
-                    }
                     
                     // Send hello message
                     this.ws.send(JSON.stringify({
@@ -488,74 +481,6 @@
                 return patterns;
             }
 
-            loadDemoData() {
-                console.log('Loading demo racing data...');
-                this.updateConnectionStatus(false);
-                document.getElementById('statusText').textContent = 'Demo Mode';
-                
-                // Create sample racing data
-                const demoRaces = [
-                    {
-                        marketId: 'demo1',
-                        venue: 'Kempton',
-                        raceName: '14:30 Kempton Win',
-                        startTime: new Date(Date.now() + 15 * 60000), // 15 mins
-                        runnerCount: 8,
-                        predictedWinner: {
-                            name: 'Thunder Bay',
-                            odds: '2.40',
-                            probability: 85,
-                            patterns: ['High Volume', 'Steam Move']
-                        },
-                        lastUpdate: Date.now()
-                    },
-                    {
-                        marketId: 'demo2',
-                        venue: 'Cheltenham',
-                        raceName: '15:05 Cheltenham Win',
-                        startTime: new Date(Date.now() + 45 * 60000), // 45 mins
-                        runnerCount: 12,
-                        predictedWinner: {
-                            name: 'Celtic Dawn',
-                            odds: '3.20',
-                            probability: 72,
-                            patterns: ['High Volume']
-                        },
-                        lastUpdate: Date.now()
-                    },
-                    {
-                        marketId: 'demo3',
-                        venue: 'Curragh',
-                        raceName: '15:40 Curragh Win',
-                        startTime: new Date(Date.now() + 80 * 60000), // 80 mins
-                        runnerCount: 10,
-                        predictedWinner: {
-                            name: 'Irish Legend',
-                            odds: '1.95',
-                            probability: 91,
-                            patterns: ['Steam Move']
-                        },
-                        lastUpdate: Date.now()
-                    },
-                    {
-                        marketId: 'demo4',
-                        venue: 'Newmarket',
-                        raceName: '16:15 Newmarket Win',
-                        startTime: new Date(Date.now() + 115 * 60000), // 115 mins
-                        runnerCount: 14,
-                        predictedWinner: {
-                            name: 'Royal Ascent',
-                            odds: '4.50',
-                            probability: 58,
-                            patterns: []
-                        },
-                        lastUpdate: Date.now()
-                    }
-                ];
-
-                demoRaces.forEach(race => this.races.set(race.marketId, race));
-                this.updateUI();
-            }
 
             updateConnectionStatus(connected) {
                 const statusDot = document.getElementById('statusDot');
