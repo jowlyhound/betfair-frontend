@@ -1,988 +1,605 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🏇 Winner Predictor - UK & Ireland Racing</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='18' font-size='18'>🏇</text></svg>">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: #0f1419;
-      color: #e6edf3;
-      line-height: 1.5;
-      min-height: 100vh;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK & Ireland Racing - Winner Predictor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .header {
-      background: rgba(13, 17, 23, 0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid #30363d;
-      padding: 1rem 2rem;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0f1c;
+            color: #ffffff;
+            min-height: 100vh;
+        }
 
-    .header-content {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+        .header {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #4a5568;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #238636;
-    }
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #00ff88;
+        }
 
-    .stats {
-      display: flex;
-      gap: 2rem;
-      align-items: center;
-    }
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
 
-    .stat-item {
-      text-align: center;
-    }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: all 0.3s ease;
+        }
 
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #238636;
-    }
+        .status-dot.connected {
+            background: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
 
-    .stat-label {
-      font-size: 0.75rem;
-      color: #7d8590;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+        .main-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
 
-    .connection-status {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.375rem 0.75rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-    }
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
 
-    .connection-status.connected {
-      background: rgba(35, 134, 54, 0.15);
-      color: #238636;
-      border: 1px solid rgba(35, 134, 54, 0.3);
-    }
+        .stat-card {
+            background: #1a2332;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
 
-    .connection-status.connecting {
-      background: rgba(251, 188, 5, 0.15);
-      color: #f1c232;
-      border: 1px solid rgba(251, 188, 5, 0.3);
-    }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00ff88;
+            margin-bottom: 0.5rem;
+        }
 
-    .connection-status.disconnected {
-      background: rgba(218, 54, 51, 0.15);
-      color: #da3633;
-      border: 1px solid rgba(218, 54, 51, 0.3);
-    }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
 
-    .connection-dot {
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 50%;
-      background: currentColor;
-      animation: pulse 2s infinite;
-    }
+        .races-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
+        .race-card {
+            background: #1a2332;
+            border: 1px solid #4a5568;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
 
-    .main {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
+        .race-card:hover {
+            transform: translateY(-2px);
+            border-color: #00ff88;
+        }
 
-    .races-header {
-      display: flex;
-      justify-content: between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-    }
+        .race-header {
+            background: linear-gradient(135deg, #2d3748 0%, #1a2332 100%);
+            padding: 1rem;
+            border-bottom: 1px solid #4a5568;
+        }
 
-    .races-title {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #e6edf3;
-    }
+        .race-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #00ff88;
+            margin-bottom: 0.5rem;
+        }
 
-    .refresh-btn {
-      background: #21262d;
-      border: 1px solid #30363d;
-      border-radius: 0.5rem;
-      color: #e6edf3;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      font-size: 0.875rem;
-      transition: all 0.2s ease;
-    }
+        .race-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
 
-    .refresh-btn:hover {
-      background: #30363d;
-      border-color: #484f58;
-    }
+        .runners-list {
+            padding: 1rem;
+        }
 
-    .races-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1rem;
-    }
+        .runner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            background: #0f1419;
+            border-radius: 6px;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
 
-    .race-card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
-      overflow: hidden;
-    }
+        .runner.predicted-winner {
+            border-left-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
 
-    .race-card:hover {
-      border-color: #484f58;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    }
+        .runner.strong-pattern {
+            border-left-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+        }
 
-    .race-card.selected {
-      border-color: #238636;
-      box-shadow: 0 0 0 1px rgba(35, 134, 54, 0.3);
-    }
+        .runner-name {
+            font-weight: 500;
+            color: #ffffff;
+        }
 
-    .race-time {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #58a6ff;
-      margin-bottom: 0.25rem;
-    }
+        .runner-details {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
 
-    .race-venue {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e6edf3;
-      margin-bottom: 0.5rem;
-    }
+        .odds {
+            font-family: monospace;
+            font-weight: 600;
+            color: #00aaff;
+            min-width: 50px;
+            text-align: right;
+        }
 
-    .race-name {
-      font-size: 0.875rem;
-      color: #7d8590;
-      margin-bottom: 1rem;
-    }
+        .confidence {
+            background: #00ff88;
+            color: #000;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            min-width: 45px;
+            text-align: center;
+        }
 
-    .predicted-winner {
-      background: rgba(35, 134, 54, 0.1);
-      border: 1px solid rgba(35, 134, 54, 0.3);
-      border-radius: 0.5rem;
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
+        .confidence.medium {
+            background: #ffaa00;
+        }
 
-    .winner-label {
-      font-size: 0.75rem;
-      color: #7d8590;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 0.25rem;
-    }
+        .confidence.low {
+            background: #666;
+            color: #fff;
+        }
 
-    .winner-name {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: #238636;
-      margin-bottom: 0.5rem;
-    }
+        .no-data {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #666;
+        }
 
-    .confidence-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.5rem;
-    }
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #00ff88;
+        }
 
-    .confidence-text {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: #e6edf3;
-    }
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
 
-    .confidence-bar {
-      height: 0.5rem;
-      background: #21262d;
-      border-radius: 0.25rem;
-      overflow: hidden;
-    }
-
-    .confidence-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #da3633, #f1c232, #238636);
-      border-radius: 0.25rem;
-      transition: width 0.3s ease;
-    }
-
-    .race-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.875rem;
-      color: #7d8590;
-    }
-
-    .runners-count {
-      background: #21262d;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
-    }
-
-    .time-to-race {
-      font-weight: 500;
-    }
-
-    .time-to-race.urgent {
-      color: #f85149;
-      font-weight: 700;
-      animation: pulse 1s infinite;
-    }
-
-    .race-details {
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 0.75rem;
-      margin-top: 1rem;
-      overflow: hidden;
-      max-height: 0;
-      opacity: 0;
-      transition: all 0.3s ease;
-    }
-
-    .race-details.open {
-      max-height: 800px;
-      opacity: 1;
-    }
-
-    .details-header {
-      background: #161b22;
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #30363d;
-      font-weight: 600;
-      color: #e6edf3;
-    }
-
-    .runners-list {
-      padding: 1rem 0;
-    }
-
-    .runner-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem 1.5rem;
-      border-bottom: 1px solid #21262d;
-      transition: background 0.2s ease;
-    }
-
-    .runner-item:hover {
-      background: #161b22;
-    }
-
-    .runner-item.predicted-winner {
-      background: rgba(35, 134, 54, 0.05);
-      border-left: 3px solid #238636;
-    }
-
-    .runner-info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .runner-name {
-      font-weight: 600;
-      color: #e6edf3;
-    }
-
-    .runner-indicators {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .indicator {
-      font-size: 0.75rem;
-      padding: 0.125rem 0.375rem;
-      border-radius: 0.25rem;
-      font-weight: 500;
-    }
-
-    .indicator.steam { background: #f85149; color: white; }
-    .indicator.volume { background: #a5a5a5; color: white; }
-    .indicator.pressure { background: #58a6ff; color: white; }
-    .indicator.stable { background: #238636; color: white; }
-
-    .runner-stats {
-      text-align: right;
-    }
-
-    .runner-probability {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #238636;
-    }
-
-    .runner-price {
-      font-size: 0.875rem;
-      color: #7d8590;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 3rem;
-      color: #7d8590;
-    }
-
-    .loading-spinner {
-      width: 2rem;
-      height: 2rem;
-      border: 2px solid #21262d;
-      border-top: 2px solid #58a6ff;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: #7d8590;
-    }
-
-    .empty-state h3 {
-      margin-bottom: 0.5rem;
-      color: #e6edf3;
-    }
-
-    @media (max-width: 768px) {
-      .header {
-        padding: 1rem;
-      }
-      
-      .header-content {
-        flex-direction: column;
-        gap: 1rem;
-      }
-      
-      .stats {
-        gap: 1rem;
-      }
-      
-      .main {
-        padding: 1rem;
-      }
-      
-      .races-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-content">
-      <div class="logo">
-        🏇 Winner Predictor
-      </div>
-      
-      <div class="stats">
-        <div class="stat-item">
-          <div class="stat-value" id="accuracy">--%</div>
-          <div class="stat-label">Accuracy</div>
+    <div class="header">
+        <h1>🏆 UK & Ireland Racing - Winner Predictor</h1>
+        <div class="connection-status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Connecting...</span>
         </div>
-        <div class="stat-item">
-          <div class="stat-value" id="racesAnalyzed">--</div>
-          <div class="stat-label">Races</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" id="activePredictions">--</div>
-          <div class="stat-label">Active</div>
-        </div>
-      </div>
-      
-      <div class="connection-status" id="connectionStatus">
-        <div class="connection-dot"></div>
-        <span id="connectionText">Connecting...</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="races-header">
-      <h2 class="races-title">UK & Ireland Racing</h2>
-      <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
     </div>
 
-    <div id="racesContainer">
-      <div class="loading">
-        <div class="loading-spinner"></div>
-        <p>Loading racing predictions...</p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // WebSocket Configuration
-    const wsUrls = [
-      'wss://pursuit-partial-venice-thought.trycloudflare.com',
-      'ws://194.164.95.216:10000',
-      'ws://localhost:10001'
-    ];
-
-    let ws = null;
-    let currentWsIndex = 0;
-    let reconnectTimeout = null;
-    let races = [];
-    let selectedRaceId = null;
-    let stats = { accuracy: 0, racesAnalyzed: 0, activePredictions: 0 };
-
-    // Initialize the application
-    function init() {
-      connectWebSocket();
-      setupEventListeners();
-      startAutoRefresh();
-    }
-
-    // WebSocket Connection Management
-    function connectWebSocket() {
-      if (currentWsIndex >= wsUrls.length) {
-        currentWsIndex = 0; // Reset to first URL
-      }
-
-      const wsUrl = wsUrls[currentWsIndex];
-      console.log(`[WS] Attempting connection to: ${wsUrl}`);
-      
-      updateConnectionStatus('connecting', 'Connecting...');
-
-      try {
-        ws = new WebSocket(wsUrl);
-        
-        ws.onopen = () => {
-          console.log(`[WS] Connected to ${wsUrl}`);
-          updateConnectionStatus('connected', 'Connected');
-          currentWsIndex = 0; // Reset to preferred URL on successful connection
-          
-          // Send hello message like backend expects
-          ws.send(JSON.stringify({type:'hello', client:'winner-predictor', ts:Date.now()}));
-          
-          // Request initial data
-          requestRaceData();
-          requestStats();
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            handleWebSocketMessage(data);
-          } catch (error) {
-            console.error('[WS] Failed to parse message:', error);
-          }
-        };
-
-        ws.onclose = () => {
-          console.log('[WS] Connection closed');
-          updateConnectionStatus('disconnected', 'Disconnected');
-          scheduleReconnect();
-        };
-
-        ws.onerror = (error) => {
-          console.error('[WS] Connection error:', error);
-          currentWsIndex++;
-          scheduleReconnect();
-        };
-
-      } catch (error) {
-        console.error('[WS] Failed to create connection:', error);
-        currentWsIndex++;
-        scheduleReconnect();
-      }
-    }
-
-    function scheduleReconnect() {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      
-      reconnectTimeout = setTimeout(() => {
-        connectWebSocket();
-      }, 3000);
-    }
-
-    function updateConnectionStatus(status, text) {
-      const statusEl = document.getElementById('connectionStatus');
-      const textEl = document.getElementById('connectionText');
-      
-      statusEl.className = `connection-status ${status}`;
-      textEl.textContent = text;
-    }
-
-    // WebSocket Message Handling
-    function handleWebSocketMessage(data) {
-      console.log('[WS] Received:', data.type || data.op);
-      
-      switch (data.type) {
-        case 'uk_ireland_races':
-          races = data.races || [];
-          renderRaces();
-          updateStats();
-          break;
-        
-        case 'race_details':
-          renderRaceDetails(data);
-          break;
-        
-        case 'prediction_stats':
-          stats = data.stats || stats;
-          updateStatsDisplay();
-          break;
-        
-        default:
-          // Handle legacy Betfair streaming formats
-          if (data.op === 'mcm' && data.mc) {
-            console.log('[WS] Processing legacy Betfair market changes:', data.mc.length);
-            convertLegacyMarketData(data.mc);
-          } else if (data.op === 'connection') {
-            console.log('[WS] Betfair connection established');
-            updateConnectionStatus('connected', 'Connected');
-          } else if (data.op === 'status') {
-            console.log('[WS] Betfair status:', data.statusCode);
-          } else if (data.type === 'welcome') {
-            console.log('[WS] Backend welcome message received');
-            updateConnectionStatus('connected', 'Connected');
-          } else if (data.type === 'market_data' && data.markets) {
-            console.log('[WS] Received market data:', data.markets.length, 'markets');
-            convertBackendMarketData(data.markets);
-          } else {
-            console.log('[WS] Unknown message type:', data.type || data.op, data);
-          }
-      }
-    }
-
-    // Convert backend market_data format to winner prediction format
-    function convertBackendMarketData(markets) {
-      if (!markets || markets.length === 0) return;
-      
-      const convertedRaces = [];
-      
-      markets.forEach(market => {
-        if (!market.id) return;
-        
-        // Filter for UK/Ireland racing only
-        const venue = market.venue || market.name || '';
-        if (!venue) return;
-        
-        // Create race time from start time
-        const raceTime = market.startTime ? new Date(market.startTime) : new Date();
-        const runners = market.runners || [];
-        
-        // Find best runner based on prices
-        let topPrediction = null;
-        let highestConfidence = 0;
-        
-        if (runners.length > 0) {
-          runners.forEach(runner => {
-            if (!runner.lastPrice) return;
-            
-            const price = parseFloat(runner.lastPrice);
-            if (price > 0) {
-              // Calculate win probability from price
-              const winProbability = Math.min(0.95, 1 / price);
-              const confidence = winProbability * 100;
-              
-              // Add bonuses for volume and other indicators
-              let patternBonus = 0;
-              if (runner.totalVolume && runner.totalVolume > 1000) patternBonus += 10;
-              if (runner.bestBack && runner.bestLay) {
-                const spread = runner.bestLay - runner.bestBack;
-                if (spread < 0.02) patternBonus += 15; // Tight spread = confidence
-              }
-              
-              const finalConfidence = Math.min(95, confidence + patternBonus);
-              
-              if (finalConfidence > highestConfidence) {
-                highestConfidence = finalConfidence;
-                topPrediction = {
-                  name: runner.name || `Runner ${runner.id}`,
-                  winProbability: finalConfidence / 100
-                };
-              }
-            }
-          });
-        }
-        
-        // Default prediction if no runner data
-        if (!topPrediction && runners.length > 0) {
-          const firstRunner = runners[0];
-          topPrediction = {
-            name: firstRunner.name || `Runner ${firstRunner.id}`,
-            winProbability: 0.5
-          };
-        }
-        
-        const convertedRace = {
-          marketId: market.id,
-          venue: venue,
-          raceName: market.name || 'Race',
-          raceTime: raceTime.toISOString(),
-          runnerCount: runners.length,
-          topPrediction: topPrediction
-        };
-        
-        convertedRaces.push(convertedRace);
-      });
-      
-      if (convertedRaces.length > 0) {
-        console.log(`[WS] Converted ${convertedRaces.length} backend markets to race format`);
-        races = convertedRaces;
-        renderRaces();
-        updateStats();
-      }
-    }
-
-    // Convert legacy Betfair format to winner prediction format
-    function convertLegacyMarketData(marketChanges) {
-      if (!marketChanges || marketChanges.length === 0) return;
-      
-      const convertedRaces = [];
-      
-      marketChanges.forEach(mc => {
-        if (!mc.id) return;
-        
-        // Extract market info
-        const marketDef = mc.marketDefinition;
-        if (!marketDef) return;
-        
-        // Filter for UK/Ireland racing only
-        const venue = marketDef.venue || '';
-        const countryCode = marketDef.countryCode || '';
-        if (!venue.includes('GB') && !venue.includes('IE') && !countryCode.includes('GB') && !countryCode.includes('IE')) {
-          return; // Skip non UK/Ireland markets
-        }
-        
-        // Skip non-WIN markets
-        const marketName = marketDef.name || '';
-        if (!marketName.includes('Winner') && !marketName.includes('Win') && marketName.includes('Place')) {
-          return;
-        }
-        
-        const raceTime = marketDef.marketTime ? new Date(marketDef.marketTime) : new Date();
-        const runners = marketDef.runners || [];
-        
-        // Find best runner based on current prices and patterns
-        let topPrediction = null;
-        let highestConfidence = 0;
-        
-        if (mc.rc && mc.rc.length > 0) {
-          mc.rc.forEach(runnerChange => {
-            const runner = runners.find(r => r.id === runnerChange.id);
-            if (!runner) return;
-            
-            const ltp = runnerChange.ltp;
-            const backPrice = runnerChange.batb && runnerChange.batb[0] ? runnerChange.batb[0][0] : null;
-            const layPrice = runnerChange.batl && runnerChange.batl[0] ? runnerChange.batl[0][0] : null;
-            
-            if (ltp) {
-              // Calculate confidence based on price (lower price = higher confidence)
-              const winProbability = ltp > 1 ? Math.min(0.95, 1 / ltp) : 0.5;
-              const confidence = winProbability * 100;
-              
-              // Add pattern detection bonuses
-              let patternBonus = 0;
-              if (runnerChange.tv && runnerChange.tv > 1000) patternBonus += 10; // Volume
-              if (backPrice && layPrice && backPrice < layPrice * 0.98) patternBonus += 15; // Steam
-              
-              const finalConfidence = Math.min(95, confidence + patternBonus);
-              
-              if (finalConfidence > highestConfidence) {
-                highestConfidence = finalConfidence;
-                topPrediction = {
-                  name: runner.name || `Runner ${runner.id}`,
-                  winProbability: finalConfidence / 100
-                };
-              }
-            }
-          });
-        }
-        
-        // Default prediction if no runner data
-        if (!topPrediction && runners.length > 0) {
-          const favoriteRunner = runners.reduce((prev, curr) => 
-            (prev.sortPriority || 999) < (curr.sortPriority || 999) ? prev : curr
-          );
-          topPrediction = {
-            name: favoriteRunner.name || `Runner ${favoriteRunner.id}`,
-            winProbability: 0.5
-          };
-        }
-        
-        const convertedRace = {
-          marketId: mc.id,
-          venue: venue || marketDef.venue || 'Course',
-          raceName: marketName,
-          raceTime: raceTime.toISOString(),
-          runnerCount: runners.length,
-          topPrediction: topPrediction
-        };
-        
-        convertedRaces.push(convertedRace);
-      });
-      
-      if (convertedRaces.length > 0) {
-        console.log(`[WS] Converted ${convertedRaces.length} racing markets`);
-        races = convertedRaces;
-        renderRaces();
-        updateStats();
-      }
-    }
-
-    // Data Request Functions
-    function requestRaceData() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        // Try new format first
-        ws.send(JSON.stringify({ type: 'request_uk_ireland_races' }));
-        // Also send legacy format for compatibility
-        ws.send(JSON.stringify({ type: 'get_markets' }));
-      }
-    }
-
-    function requestRaceDetails(marketId) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ 
-          type: 'request_race_details', 
-          marketId: marketId 
-        }));
-      }
-    }
-
-    function requestStats() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'request_stats' }));
-      }
-    }
-
-    // UI Rendering Functions
-    function renderRaces() {
-      const container = document.getElementById('racesContainer');
-      
-      if (races.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <h3>No races available</h3>
-            <p>Waiting for UK & Ireland racing data...</p>
-          </div>
-        `;
-        return;
-      }
-
-      // Sort races by time
-      races.sort((a, b) => new Date(a.raceTime) - new Date(b.raceTime));
-
-      const racesGrid = document.createElement('div');
-      racesGrid.className = 'races-grid';
-
-      races.forEach(race => {
-        const raceCard = createRaceCard(race);
-        racesGrid.appendChild(raceCard);
-      });
-
-      container.innerHTML = '';
-      container.appendChild(racesGrid);
-    }
-
-    function createRaceCard(race) {
-      const card = document.createElement('div');
-      card.className = 'race-card';
-      card.dataset.marketId = race.marketId;
-      
-      const raceTime = new Date(race.raceTime);
-      const timeString = raceTime.toLocaleTimeString('en-GB', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-      
-      const minutesToRace = Math.max(0, Math.round((raceTime - new Date()) / (1000 * 60)));
-      const timeToRaceClass = minutesToRace < 15 ? 'urgent' : '';
-      
-      const confidence = Math.round((race.topPrediction?.winProbability || 0) * 100);
-      const confidenceWidth = confidence;
-
-      card.innerHTML = `
-        <div class="race-time">${timeString}</div>
-        <div class="race-venue">${race.venue}</div>
-        <div class="race-name">${race.raceName}</div>
-        
-        <div class="predicted-winner">
-          <div class="winner-label">Predicted Winner</div>
-          <div class="winner-name">${race.topPrediction?.name || 'Analyzing...'}</div>
-          <div class="confidence-container">
-            <span class="confidence-text">${confidence}% confidence</span>
-          </div>
-          <div class="confidence-bar">
-            <div class="confidence-fill" style="width: ${confidenceWidth}%"></div>
-          </div>
-        </div>
-        
-        <div class="race-meta">
-          <span class="runners-count">${race.runnerCount} runners</span>
-          <span class="time-to-race ${timeToRaceClass}">${minutesToRace}m to race</span>
-        </div>
-      `;
-
-      card.addEventListener('click', () => selectRace(race.marketId));
-      
-      return card;
-    }
-
-    function selectRace(marketId) {
-      // Update UI selection
-      document.querySelectorAll('.race-card').forEach(card => {
-        card.classList.remove('selected');
-      });
-      
-      const selectedCard = document.querySelector(`[data-market-id="${marketId}"]`);
-      if (selectedCard) {
-        selectedCard.classList.add('selected');
-      }
-
-      // Close previous details
-      const existingDetails = document.querySelector('.race-details.open');
-      if (existingDetails) {
-        existingDetails.classList.remove('open');
-        setTimeout(() => existingDetails.remove(), 300);
-      }
-
-      selectedRaceId = marketId;
-      
-      // Request race details
-      requestRaceDetails(marketId);
-    }
-
-    function renderRaceDetails(data) {
-      if (data.marketId !== selectedRaceId) return;
-
-      const selectedCard = document.querySelector(`[data-market-id="${data.marketId}"]`);
-      if (!selectedCard) return;
-
-      // Remove existing details
-      const existingDetails = selectedCard.nextElementSibling;
-      if (existingDetails && existingDetails.classList.contains('race-details')) {
-        existingDetails.remove();
-      }
-
-      const detailsPanel = document.createElement('div');
-      detailsPanel.className = 'race-details';
-      
-      // Sort runners by win probability
-      const runners = (data.runners || []).sort((a, b) => 
-        (b.winProbability || 0) - (a.winProbability || 0)
-      );
-
-      let runnersHtml = '';
-      runners.forEach(runner => {
-        const winProb = Math.round((runner.winProbability || 0) * 100);
-        const isPredictedWinner = runner.isPredictedWinner;
-        
-        const indicators = [];
-        if (runner.patterns?.steam) indicators.push('<span class="indicator steam">Steam</span>');
-        if (runner.patterns?.volume) indicators.push('<span class="indicator volume">Volume</span>');
-        if (runner.patterns?.pressure) indicators.push('<span class="indicator pressure">Pressure</span>');
-        if (runner.patterns?.stable) indicators.push('<span class="indicator stable">Stable</span>');
-        
-        runnersHtml += `
-          <div class="runner-item ${isPredictedWinner ? 'predicted-winner' : ''}">
-            <div class="runner-info">
-              <div class="runner-name">${runner.name}</div>
-              <div class="runner-indicators">${indicators.join('')}</div>
+    <div class="main-container">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value" id="totalRaces">0</div>
+                <div class="stat-label">Today's Races</div>
             </div>
-            <div class="runner-stats">
-              <div class="runner-probability">${winProb}%</div>
-              <div class="runner-price">${runner.currentPrice || 'N/A'}</div>
+            <div class="stat-card">
+                <div class="stat-value" id="predictedWinners">0</div>
+                <div class="stat-label">Predicted Winners</div>
             </div>
-          </div>
-        `;
-      });
-
-      detailsPanel.innerHTML = `
-        <div class="details-header">
-          Runner Analysis
+            <div class="stat-card">
+                <div class="stat-value" id="strongPatterns">0</div>
+                <div class="stat-label">Strong Patterns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgConfidence">0%</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
         </div>
-        <div class="runners-list">
-          ${runnersHtml}
+
+        <div id="racesContainer" class="races-grid">
+            <div class="loading">Loading today's racing data</div>
         </div>
-      `;
+    </div>
 
-      selectedCard.parentNode.insertBefore(detailsPanel, selectedCard.nextSibling);
-      
-      // Animate open
-      setTimeout(() => {
-        detailsPanel.classList.add('open');
-      }, 10);
-    }
+    <script>
+        class RacingPredictor {
+            constructor() {
+                this.ws = null;
+                this.races = new Map();
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                this.reconnectDelay = 2000;
+                
+                this.wsUrls = [
+                    'wss://pursuit-partial-venice-thought.trycloudflare.com',
+                    'ws://194.164.95.216:10000',
+                    'ws://localhost:10000'
+                ];
+                
+                this.connect();
+                
+                // Update UI every 10 seconds
+                setInterval(() => this.updateUI(), 10000);
+            }
 
-    function updateStats() {
-      stats.activePredictions = races.length;
-      updateStatsDisplay();
-    }
+            connect() {
+                if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
 
-    function updateStatsDisplay() {
-      document.getElementById('accuracy').textContent = `${stats.accuracy.toFixed(1)}%`;
-      document.getElementById('racesAnalyzed').textContent = stats.racesAnalyzed.toString();
-      document.getElementById('activePredictions').textContent = stats.activePredictions.toString();
-    }
+                const wsUrl = this.wsUrls[this.reconnectAttempts % this.wsUrls.length];
+                console.log(`Connecting to: ${wsUrl}`);
+                
+                try {
+                    this.ws = new WebSocket(wsUrl);
+                    this.setupWebSocket();
+                } catch (error) {
+                    console.error('WebSocket connection error:', error);
+                    this.handleReconnect();
+                }
+            }
 
-    // Event Listeners
-    function setupEventListeners() {
-      document.getElementById('refreshBtn').addEventListener('click', () => {
-        requestRaceData();
-        requestStats();
-      });
-    }
+            setupWebSocket() {
+                this.ws.onopen = () => {
+                    console.log('Connected to racing backend');
+                    this.updateConnectionStatus(true);
+                    this.reconnectAttempts = 0;
+                    
+                    // Send hello message
+                    this.ws.send(JSON.stringify({
+                        type: 'hello',
+                        client: 'winner-predictor',
+                        timestamp: Date.now()
+                    }));
+                };
 
-    // Auto-refresh functionality
-    function startAutoRefresh() {
-      setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          requestRaceData();
+                this.ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.processMessage(data);
+                    } catch (error) {
+                        console.error('Message processing error:', error, event.data);
+                    }
+                };
+
+                this.ws.onclose = () => {
+                    console.log('WebSocket connection closed');
+                    this.updateConnectionStatus(false);
+                    this.handleReconnect();
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    this.updateConnectionStatus(false);
+                };
+            }
+
+            processMessage(data) {
+                console.log('Processing message:', data.type || data.op);
+
+                // Handle different message formats from backend
+                if (data.op === 'mcm' && data.mc) {
+                    // Legacy Betfair market change messages
+                    this.processMarketChanges(data.mc);
+                } else if (data.op === 'connection' && data.connectionId) {
+                    // Connection established
+                    console.log('Betfair connection established');
+                } else if (data.op === 'status') {
+                    // Status updates
+                    console.log('Status update:', data.statusCode, data.connectionClosed);
+                } else if (data.type === 'market_data' && data.markets) {
+                    // Backend processed market data
+                    this.processBackendMarkets(data.markets);
+                } else if (data.type === 'welcome') {
+                    // Welcome message
+                    console.log('Backend welcome');
+                } else {
+                    console.log('Unknown message type:', data.type || data.op);
+                }
+
+                this.updateUI();
+            }
+
+            processMarketChanges(marketChanges) {
+                marketChanges.forEach(mc => {
+                    if (!mc.marketDefinition) return;
+
+                    const def = mc.marketDefinition;
+                    
+                    // Filter for UK/Ireland racing WIN markets only
+                    const isUKIreland = def.countryCode === 'GB' || def.countryCode === 'IE';
+                    const isRacing = def.eventTypeId === '7'; // Horse Racing
+                    const isWinMarket = def.name && def.name.includes('Win');
+                    
+                    if (!isUKIreland || !isRacing || !isWinMarket) return;
+
+                    console.log('Processing UK/IE racing market:', def.venue, def.name);
+
+                    let bestRunner = null;
+                    let bestProbability = 0;
+
+                    // Process runner changes
+                    if (mc.rc && Array.isArray(mc.rc)) {
+                        mc.rc.forEach(rc => {
+                            const runner = def.runners.find(r => r.id === rc.id);
+                            if (!runner || runner.status !== 'ACTIVE') return;
+
+                            const ltp = rc.ltp;
+                            if (!ltp || ltp <= 1) return;
+
+                            // Calculate probability from price
+                            const probability = Math.min(95, (1 / ltp) * 100);
+                            
+                            // Add pattern bonuses
+                            let bonus = 0;
+                            if (rc.tv && rc.tv > 1000) bonus += 5; // Volume bonus
+                            if (rc.batb && rc.batl) {
+                                const back = rc.batb[0] && rc.batb[0][0];
+                                const lay = rc.batl[0] && rc.batl[0][0];
+                                if (back && lay && (lay - back) < 0.02) bonus += 10; // Tight spread
+                            }
+
+                            const finalProbability = Math.min(95, probability + bonus);
+
+                            if (finalProbability > bestProbability) {
+                                bestProbability = finalProbability;
+                                bestRunner = {
+                                    name: runner.name,
+                                    odds: ltp.toFixed(2),
+                                    probability: finalProbability,
+                                    patterns: this.detectPatterns(rc)
+                                };
+                            }
+                        });
+                    }
+
+                    if (bestRunner) {
+                        const raceData = {
+                            marketId: mc.id,
+                            venue: def.venue || 'Unknown Course',
+                            raceName: def.name,
+                            startTime: new Date(def.marketTime),
+                            runnerCount: def.runners.filter(r => r.status === 'ACTIVE').length,
+                            predictedWinner: bestRunner,
+                            lastUpdate: Date.now()
+                        };
+
+                        this.races.set(mc.id, raceData);
+                    }
+                });
+            }
+
+            processBackendMarkets(markets) {
+                if (!Array.isArray(markets)) return;
+
+                console.log(`Processing ${markets.length} backend markets`);
+
+                markets.forEach(market => {
+                    if (!market.id) return;
+
+                    // Extract runners and find best prediction
+                    const runners = market.runners || [];
+                    let bestRunner = null;
+                    let bestProbability = 0;
+
+                    runners.forEach(runner => {
+                        const ltp = parseFloat(runner.lastPrice || 0);
+                        if (ltp <= 1) return;
+
+                        const probability = Math.min(95, (1 / ltp) * 100);
+                        
+                        if (probability > bestProbability) {
+                            bestProbability = probability;
+                            bestRunner = {
+                                name: runner.name,
+                                odds: ltp.toFixed(2),
+                                probability: probability,
+                                patterns: []
+                            };
+                        }
+                    });
+
+                    if (bestRunner) {
+                        const raceData = {
+                            marketId: market.id,
+                            venue: market.venue || market.name || 'Course',
+                            raceName: market.name || 'Race',
+                            startTime: new Date(market.startTime || Date.now()),
+                            runnerCount: runners.length,
+                            predictedWinner: bestRunner,
+                            lastUpdate: Date.now()
+                        };
+
+                        this.races.set(market.id, raceData);
+                    }
+                });
+            }
+
+            detectPatterns(runnerChange) {
+                const patterns = [];
+                
+                if (runnerChange.tv && runnerChange.tv > 2000) {
+                    patterns.push('High Volume');
+                }
+                
+                if (runnerChange.batb && runnerChange.batl) {
+                    const back = runnerChange.batb[0] && runnerChange.batb[0][0];
+                    const lay = runnerChange.batl[0] && runnerChange.batl[0][0];
+                    if (back && lay && (lay - back) < 0.02) {
+                        patterns.push('Steam Move');
+                    }
+                }
+
+                return patterns;
+            }
+
+            updateConnectionStatus(connected) {
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                
+                if (connected) {
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Connected';
+                } else {
+                    statusDot.classList.remove('connected');
+                    statusText.textContent = 'Disconnected';
+                }
+            }
+
+            handleReconnect() {
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.reconnectAttempts++;
+                    console.log(`Reconnecting in ${this.reconnectDelay}ms (attempt ${this.reconnectAttempts})`);
+                    setTimeout(() => this.connect(), this.reconnectDelay);
+                    this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, 10000);
+                }
+            }
+
+            updateUI() {
+                const races = Array.from(this.races.values())
+                    .filter(race => this.isRecentRace(race))
+                    .sort((a, b) => a.startTime - b.startTime);
+                
+                // Update stats
+                document.getElementById('totalRaces').textContent = races.length;
+                
+                const predictedWinners = races.filter(race => 
+                    race.predictedWinner && race.predictedWinner.probability > 30
+                );
+                document.getElementById('predictedWinners').textContent = predictedWinners.length;
+                
+                const strongPatterns = races.reduce((count, race) => {
+                    return count + (race.predictedWinner?.patterns?.length || 0);
+                }, 0);
+                document.getElementById('strongPatterns').textContent = strongPatterns;
+                
+                const avgConfidence = races.length > 0 
+                    ? Math.round(races.reduce((sum, race) => 
+                        sum + (race.predictedWinner?.probability || 0), 0) / races.length)
+                    : 0;
+                document.getElementById('avgConfidence').textContent = avgConfidence + '%';
+                
+                // Render races
+                this.renderRaces(races);
+            }
+
+            isRecentRace(race) {
+                const now = new Date();
+                const raceTime = new Date(race.startTime);
+                const hoursDiff = (raceTime - now) / (1000 * 60 * 60);
+                
+                // Show races from 2 hours ago to 6 hours ahead
+                return hoursDiff > -2 && hoursDiff < 6;
+            }
+
+            renderRaces(races) {
+                const container = document.getElementById('racesContainer');
+                
+                if (races.length === 0) {
+                    container.innerHTML = '<div class="no-data">No UK/Ireland racing data available</div>';
+                    return;
+                }
+
+                const html = races.map(race => this.renderRaceCard(race)).join('');
+                container.innerHTML = html;
+            }
+
+            renderRaceCard(race) {
+                const startTime = race.startTime.toLocaleTimeString('en-GB', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const now = new Date();
+                const minutesToRace = Math.max(0, Math.round((race.startTime - now) / (1000 * 60)));
+                
+                const winner = race.predictedWinner;
+                const confidenceClass = winner.probability > 70 ? 'high' : 
+                                      winner.probability > 40 ? 'medium' : 'low';
+
+                const patterns = winner.patterns && winner.patterns.length > 0 
+                    ? winner.patterns.join(', ') 
+                    : 'Standard Analysis';
+
+                return `
+                    <div class="race-card">
+                        <div class="race-header">
+                            <div class="race-title">${race.venue}</div>
+                            <div class="race-info">
+                                <span>${startTime}</span>
+                                <span>${minutesToRace}m to go</span>
+                            </div>
+                        </div>
+                        <div class="runners-list">
+                            <div class="runner predicted-winner">
+                                <div>
+                                    <div class="runner-name">${winner.name}</div>
+                                    <div style="font-size: 0.8rem; color: #a0a0a0;">${patterns}</div>
+                                </div>
+                                <div class="runner-details">
+                                    <div class="odds">${winner.odds}</div>
+                                    <div class="confidence ${confidenceClass}">${Math.round(winner.probability)}%</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #a0a0a0; text-align: center;">
+                                ${race.runnerCount} runners
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }
-      }, 30000); // Refresh every 30 seconds
-    }
 
-    // Initialize the application when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
-      init();
-    }
-  </script>
+        // Initialize the racing predictor
+        document.addEventListener('DOMContentLoaded', () => {
+            new RacingPredictor();
+        });
+    </script>
 </body>
 </html>
