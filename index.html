@@ -545,7 +545,7 @@
 
     // WebSocket Message Handling
     function handleWebSocketMessage(data) {
-      console.log('[WS] Received:', data.type);
+      console.log('[WS] Received:', data.type || data.op);
       
       switch (data.type) {
         case 'uk_ireland_races':
@@ -564,18 +564,122 @@
           break;
         
         default:
-          // Handle legacy message formats
+          // Handle legacy Betfair streaming formats
           if (data.op === 'mcm' && data.mc) {
-            // Convert legacy format for compatibility
-            console.log('[WS] Processing legacy market data');
+            console.log('[WS] Processing legacy Betfair market changes:', data.mc.length);
+            convertLegacyMarketData(data.mc);
+          } else if (data.op === 'connection') {
+            console.log('[WS] Betfair connection established');
+            updateConnectionStatus('connected', 'Connected');
+          } else if (data.op === 'status') {
+            console.log('[WS] Betfair status:', data.statusCode);
           }
+      }
+    }
+
+    // Convert legacy Betfair format to winner prediction format
+    function convertLegacyMarketData(marketChanges) {
+      if (!marketChanges || marketChanges.length === 0) return;
+      
+      const convertedRaces = [];
+      
+      marketChanges.forEach(mc => {
+        if (!mc.id) return;
+        
+        // Extract market info
+        const marketDef = mc.marketDefinition;
+        if (!marketDef) return;
+        
+        // Filter for UK/Ireland racing only
+        const venue = marketDef.venue || '';
+        const countryCode = marketDef.countryCode || '';
+        if (!venue.includes('GB') && !venue.includes('IE') && !countryCode.includes('GB') && !countryCode.includes('IE')) {
+          return; // Skip non UK/Ireland markets
+        }
+        
+        // Skip non-WIN markets
+        const marketName = marketDef.name || '';
+        if (!marketName.includes('Winner') && !marketName.includes('Win') && marketName.includes('Place')) {
+          return;
+        }
+        
+        const raceTime = marketDef.marketTime ? new Date(marketDef.marketTime) : new Date();
+        const runners = marketDef.runners || [];
+        
+        // Find best runner based on current prices and patterns
+        let topPrediction = null;
+        let highestConfidence = 0;
+        
+        if (mc.rc && mc.rc.length > 0) {
+          mc.rc.forEach(runnerChange => {
+            const runner = runners.find(r => r.id === runnerChange.id);
+            if (!runner) return;
+            
+            const ltp = runnerChange.ltp;
+            const backPrice = runnerChange.batb && runnerChange.batb[0] ? runnerChange.batb[0][0] : null;
+            const layPrice = runnerChange.batl && runnerChange.batl[0] ? runnerChange.batl[0][0] : null;
+            
+            if (ltp) {
+              // Calculate confidence based on price (lower price = higher confidence)
+              const winProbability = ltp > 1 ? Math.min(0.95, 1 / ltp) : 0.5;
+              const confidence = winProbability * 100;
+              
+              // Add pattern detection bonuses
+              let patternBonus = 0;
+              if (runnerChange.tv && runnerChange.tv > 1000) patternBonus += 10; // Volume
+              if (backPrice && layPrice && backPrice < layPrice * 0.98) patternBonus += 15; // Steam
+              
+              const finalConfidence = Math.min(95, confidence + patternBonus);
+              
+              if (finalConfidence > highestConfidence) {
+                highestConfidence = finalConfidence;
+                topPrediction = {
+                  name: runner.name || `Runner ${runner.id}`,
+                  winProbability: finalConfidence / 100
+                };
+              }
+            }
+          });
+        }
+        
+        // Default prediction if no runner data
+        if (!topPrediction && runners.length > 0) {
+          const favoriteRunner = runners.reduce((prev, curr) => 
+            (prev.sortPriority || 999) < (curr.sortPriority || 999) ? prev : curr
+          );
+          topPrediction = {
+            name: favoriteRunner.name || `Runner ${favoriteRunner.id}`,
+            winProbability: 0.5
+          };
+        }
+        
+        const convertedRace = {
+          marketId: mc.id,
+          venue: venue || marketDef.venue || 'Course',
+          raceName: marketName,
+          raceTime: raceTime.toISOString(),
+          runnerCount: runners.length,
+          topPrediction: topPrediction
+        };
+        
+        convertedRaces.push(convertedRace);
+      });
+      
+      if (convertedRaces.length > 0) {
+        console.log(`[WS] Converted ${convertedRaces.length} racing markets`);
+        races = convertedRaces;
+        renderRaces();
+        updateStats();
       }
     }
 
     // Data Request Functions
     function requestRaceData() {
       if (ws && ws.readyState === WebSocket.OPEN) {
+        // Try new format first
         ws.send(JSON.stringify({ type: 'request_uk_ireland_races' }));
+        // Also send legacy format for compatibility
+        ws.send(JSON.stringify({ type: 'get_markets' }));
       }
     }
 
