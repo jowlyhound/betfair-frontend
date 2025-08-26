@@ -430,20 +430,32 @@
             }
 
             processBackendMarkets(markets) {
-                if (!Array.isArray(markets)) return;
+                if (!Array.isArray(markets)) {
+                    console.log('Markets data is not an array:', markets);
+                    return;
+                }
 
                 console.log(`Processing ${markets.length} backend markets`);
 
                 markets.forEach(market => {
-                    if (!market.id) return;
+                    if (!market.id) {
+                        console.log('Market missing ID:', market);
+                        return;
+                    }
+
+                    console.log('Processing market:', market.venue, market.name);
 
                     // Extract runners and find best prediction
                     const runners = market.runners || [];
+                    console.log(`Market ${market.name} has ${runners.length} runners`);
+                    
                     let bestRunner = null;
                     let bestProbability = 0;
 
                     runners.forEach(runner => {
                         const ltp = parseFloat(runner.lastPrice || 0);
+                        console.log(`Runner ${runner.name}: LTP=${ltp}`);
+                        
                         if (ltp <= 1) return;
 
                         const probability = Math.min(95, (1 / ltp) * 100);
@@ -454,15 +466,26 @@
                                 name: runner.name,
                                 odds: ltp.toFixed(2),
                                 probability: probability,
-                                patterns: []
+                                patterns: this.detectBasicPatterns(runner)
                             };
                         }
                     });
 
+                    // Even if no clear winner, show the race with first runner
+                    if (!bestRunner && runners.length > 0) {
+                        const firstRunner = runners[0];
+                        bestRunner = {
+                            name: firstRunner.name || 'Unknown',
+                            odds: parseFloat(firstRunner.lastPrice || 0).toFixed(2) || 'N/A',
+                            probability: 50, // Default
+                            patterns: []
+                        };
+                    }
+
                     if (bestRunner) {
                         const raceData = {
                             marketId: market.id,
-                            venue: market.venue || market.name || 'Course',
+                            venue: market.venue || 'Unknown Venue',
                             raceName: market.name || 'Race',
                             startTime: new Date(market.startTime || Date.now()),
                             runnerCount: runners.length,
@@ -470,9 +493,21 @@
                             lastUpdate: Date.now()
                         };
 
+                        console.log('Adding race:', raceData.venue, raceData.predictedWinner.name);
                         this.races.set(market.id, raceData);
                     }
                 });
+            }
+
+            detectBasicPatterns(runner) {
+                const patterns = [];
+                if (runner.totalVolume && runner.totalVolume > 1000) {
+                    patterns.push('High Volume');
+                }
+                if (runner.lastPrice && runner.lastPrice < 3) {
+                    patterns.push('Favourite');
+                }
+                return patterns;
             }
 
             detectPatterns(runnerChange) {
