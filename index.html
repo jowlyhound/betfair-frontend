@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UK & Ireland Racing - Winner Predictor v2</title>
+    <title>UK & Ireland Racing - Daily Schedule</title>
     <style>
         * {
             margin: 0;
@@ -12,270 +12,414 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0a0f1c;
-            color: #ffffff;
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #0f1419;
+            color: #e6edf3;
+            line-height: 1.5;
         }
 
         .header {
-            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #30363d;
             padding: 1rem 2rem;
-            border-bottom: 2px solid #4a5568;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .header h1 {
-            font-size: 1.8rem;
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            color: #00ff88;
+            color: #238636;
         }
 
         .connection-status {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
             font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(35, 134, 54, 0.15);
+            color: #238636;
+            border: 1px solid rgba(35, 134, 54, 0.3);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(218, 54, 51, 0.15);
+            color: #da3633;
+            border: 1px solid rgba(218, 54, 51, 0.3);
         }
 
         .status-dot {
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: #ff4444;
-            transition: all 0.3s ease;
-        }
-
-        .status-dot.connected {
-            background: #00ff88;
-            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            background: currentColor;
         }
 
         .main-container {
-            padding: 2rem;
             max-width: 1400px;
             margin: 0 auto;
+            padding: 2rem;
         }
 
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+        .date-header {
+            text-align: center;
             margin-bottom: 2rem;
         }
 
-        .stat-card {
-            background: #1a2332;
-            border: 1px solid #4a5568;
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-
-        .stat-value {
+        .date-title {
             font-size: 2rem;
             font-weight: 700;
-            color: #00ff88;
+            color: #e6edf3;
             margin-bottom: 0.5rem;
         }
 
-        .stat-label {
-            font-size: 0.9rem;
-            color: #a0a0a0;
-        }
-
-        .races-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .race-card {
-            background: #1a2332;
-            border: 1px solid #4a5568;
-            border-radius: 12px;
-            overflow: hidden;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
-
-        .race-card:hover {
-            transform: translateY(-2px);
-            border-color: #00ff88;
-        }
-
-        .race-header {
-            background: linear-gradient(135deg, #2d3748 0%, #1a2332 100%);
-            padding: 1rem;
-            border-bottom: 1px solid #4a5568;
-        }
-
-        .race-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #00ff88;
-            margin-bottom: 0.5rem;
-        }
-
-        .race-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: #a0a0a0;
-        }
-
-        .runners-list {
-            padding: 1rem;
-        }
-
-        .runner {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            background: #0f1419;
-            border-radius: 6px;
-            border-left: 3px solid transparent;
-            transition: all 0.2s ease;
-        }
-
-        .runner.predicted-winner {
-            border-left-color: #00ff88;
-            background: rgba(0, 255, 136, 0.1);
-        }
-
-        .runner.strong-pattern {
-            border-left-color: #ffaa00;
-            background: rgba(255, 170, 0, 0.1);
-        }
-
-        .runner-name {
-            font-weight: 500;
-            color: #ffffff;
-        }
-
-        .runner-details {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .odds {
-            font-family: monospace;
-            font-weight: 600;
-            color: #00aaff;
-            min-width: 50px;
-            text-align: right;
-        }
-
-        .confidence {
-            background: #00ff88;
-            color: #000;
-            padding: 0.2rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            min-width: 45px;
-            text-align: center;
-        }
-
-        .confidence.medium {
-            background: #ffaa00;
-        }
-
-        .confidence.low {
-            background: #666;
-            color: #fff;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #666;
+        .date-subtitle {
+            font-size: 1rem;
+            color: #7d8590;
         }
 
         .loading {
             text-align: center;
             padding: 4rem 2rem;
-            color: #00ff88;
+            color: #7d8590;
         }
 
-        .loading::after {
-            content: '...';
-            animation: dots 1.5s infinite;
+        .loading-spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid #21262d;
+            border-top: 2px solid #238636;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
 
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-racing {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #7d8590;
+        }
+
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .course-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .course-card:hover {
+            border-color: #238636;
+            transform: translateY(-2px);
+        }
+
+        .course-header {
+            background: linear-gradient(135deg, #21262d 0%, #161b22 100%);
+            padding: 1.5rem;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .course-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #238636;
+            margin-bottom: 0.5rem;
+        }
+
+        .course-info {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.9rem;
+            color: #7d8590;
+        }
+
+        .race-list {
+            padding: 1rem;
+        }
+
+        .race-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: #0d1117;
+            border-radius: 8px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .race-item:hover {
+            background: #161b22;
+            border-left-color: #238636;
+        }
+
+        .race-item.selected {
+            background: rgba(35, 134, 54, 0.1);
+            border-left-color: #238636;
+        }
+
+        .race-time {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #e6edf3;
+        }
+
+        .race-name {
+            font-size: 0.9rem;
+            color: #7d8590;
+            margin-top: 0.2rem;
+        }
+
+        .race-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .runners-count {
+            background: #21262d;
+            color: #7d8590;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+        }
+
+        .pattern-indicator {
+            background: #f85149;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .race-details {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            margin-top: 1rem;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .race-details.open {
+            max-height: 600px;
+            opacity: 1;
+        }
+
+        .details-header {
+            background: #161b22;
+            padding: 1rem;
+            border-bottom: 1px solid #30363d;
+            font-weight: 600;
+            color: #e6edf3;
+        }
+
+        .horses-list {
+            padding: 0;
+        }
+
+        .horse-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #21262d;
+            transition: background 0.2s ease;
+        }
+
+        .horse-item:hover {
+            background: #161b22;
+        }
+
+        .horse-item.strong-pattern {
+            background: rgba(248, 81, 73, 0.1);
+            border-left: 4px solid #f85149;
+        }
+
+        .horse-item.pattern-detected {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+        }
+
+        .horse-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .horse-name {
+            font-weight: 600;
+            color: #e6edf3;
+            font-size: 1rem;
+        }
+
+        .horse-patterns {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .pattern-badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .pattern-steam { background: #f85149; color: white; }
+        .pattern-volume { background: #a855f7; color: white; }
+        .pattern-pressure { background: #3b82f6; color: white; }
+        .pattern-confidence { background: #10b981; color: white; }
+
+        .horse-stats {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+
+        .horse-odds {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #238636;
+        }
+
+        .confidence-score {
+            font-size: 0.8rem;
+            color: #7d8590;
+        }
+
+        .time-to-race {
+            font-size: 0.8rem;
+            color: #7d8590;
+        }
+
+        .time-to-race.soon {
+            color: #f85149;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .main-container {
+                padding: 1rem;
+            }
+            
+            .courses-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🏆 UK & Ireland Racing - Winner Predictor</h1>
-        <div class="connection-status">
-            <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Connecting...</span>
+        <div class="header-content">
+            <div class="logo">
+                🏇 UK & Ireland Racing
+            </div>
+            
+            <div class="connection-status" id="connectionStatus">
+                <div class="status-dot"></div>
+                <span id="connectionText">Connecting...</span>
+            </div>
         </div>
     </div>
 
     <div class="main-container">
-        <div class="stats-bar">
-            <div class="stat-card">
-                <div class="stat-value" id="totalRaces">0</div>
-                <div class="stat-label">Today's Races</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="predictedWinners">0</div>
-                <div class="stat-label">Predicted Winners</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="strongPatterns">0</div>
-                <div class="stat-label">Strong Patterns</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="avgConfidence">0%</div>
-                <div class="stat-label">Avg Confidence</div>
-            </div>
+        <div class="date-header">
+            <h1 class="date-title" id="dateTitle">Today's Racing</h1>
+            <p class="date-subtitle" id="dateSubtitle">Loading schedule...</p>
         </div>
 
-        <div id="racesContainer" class="races-grid">
-            <div class="loading">Loading today's racing data</div>
+        <div id="racingContainer">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Loading today's racing schedule...</p>
+            </div>
         </div>
     </div>
 
     <script>
-        class RacingPredictor {
+        class DailyRacingSchedule {
             constructor() {
                 this.ws = null;
-                this.races = new Map();
+                this.courses = new Map();
+                this.selectedRace = null;
                 this.reconnectAttempts = 0;
                 this.maxReconnectAttempts = 5;
                 this.reconnectDelay = 2000;
                 
                 this.wsUrls = [
-                    'wss://scratch-webmaster-specialties-worst.trycloudflare.com',
-                    'ws://localhost:10007',
-                    'ws://194.164.95.216:10000'
+                    'wss://quote-metabolism-components-gray.trycloudflare.com',
+                    'ws://localhost:10009',
+                    'ws://194.164.95.216:10009'
                 ];
                 
-                
+                this.updateDateHeader();
                 this.connect();
                 
-                // Update UI every 10 seconds
-                setInterval(() => this.updateUI(), 10000);
+                // Update times every minute
+                setInterval(() => this.updateRaceTimes(), 60000);
+            }
+
+            updateDateHeader() {
+                const today = new Date();
+                const options = { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                };
                 
-                // Request fresh market data every 30 seconds
-                setInterval(() => {
-                    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                        this.ws.send(JSON.stringify({ type: 'get_markets' }));
-                    }
-                }, 30000);
+                document.getElementById('dateTitle').textContent = 
+                    today.toLocaleDateString('en-GB', options);
+                document.getElementById('dateSubtitle').textContent = 
+                    'UK & Ireland Racing Schedule';
             }
 
             connect() {
@@ -299,11 +443,10 @@
                     this.updateConnectionStatus(true);
                     this.reconnectAttempts = 0;
                     
-                    
                     // Send hello message
                     this.ws.send(JSON.stringify({
                         type: 'hello',
-                        client: 'winner-predictor',
+                        client: 'daily-schedule',
                         timestamp: Date.now()
                     }));
                     
@@ -318,7 +461,7 @@
                         const data = JSON.parse(event.data);
                         this.processMessage(data);
                     } catch (error) {
-                        console.error('Message processing error:', error, event.data);
+                        console.error('Message processing error:', error);
                     }
                 };
 
@@ -335,210 +478,167 @@
             }
 
             processMessage(data) {
-                console.log('Processing message:', data.type || data.op);
+                console.log('Processing message:', data.type);
 
-                // Handle different message formats from backend
-                if (data.op === 'mcm' && data.mc) {
-                    // Legacy Betfair market change messages
-                    this.processMarketChanges(data.mc);
-                } else if (data.op === 'connection' && data.connectionId) {
-                    // Connection established
-                    console.log('Betfair connection established');
-                } else if (data.op === 'status') {
-                    // Status updates
-                    console.log('Status update:', data.statusCode, data.connectionClosed);
-                } else if (data.type === 'market_data' && data.markets) {
-                    // Backend processed market data
-                    this.processBackendMarkets(data.markets);
-                } else if (data.type === 'welcome') {
-                    // Welcome message
-                    console.log('Backend welcome');
-                } else {
-                    console.log('Unknown message type:', data.type || data.op);
+                switch (data.type) {
+                    case 'market_data':
+                        this.processMarketData(data.markets);
+                        break;
+                    case 'mcm':
+                        this.processMarketChanges(data);
+                        break;
+                    case 'welcome':
+                        console.log('Backend welcome');
+                        break;
+                    default:
+                        console.log('Unknown message type:', data.type);
                 }
-
-                this.updateUI();
             }
 
-            processMarketChanges(marketChanges) {
-                marketChanges.forEach(mc => {
-                    if (!mc.marketDefinition) return;
+            processMarketData(markets) {
+                if (!Array.isArray(markets)) return;
 
-                    const def = mc.marketDefinition;
-                    
-                    // Filter for UK/Ireland racing WIN markets only
-                    const isUKIreland = def.countryCode === 'GB' || def.countryCode === 'IE';
-                    const isRacing = def.eventTypeId === '7'; // Horse Racing
-                    const isWinMarket = def.name && def.name.includes('Win');
-                    
-                    if (!isUKIreland || !isRacing || !isWinMarket) return;
+                console.log(`Processing ${markets.length} markets`);
 
-                    console.log('Processing UK/IE racing market:', def.venue, def.name);
-
-                    let bestRunner = null;
-                    let bestProbability = 0;
-
-                    // Process runner changes
-                    if (mc.rc && Array.isArray(mc.rc)) {
-                        mc.rc.forEach(rc => {
-                            const runner = def.runners.find(r => r.id === rc.id);
-                            if (!runner || runner.status !== 'ACTIVE') return;
-
-                            const ltp = rc.ltp;
-                            if (!ltp || ltp <= 1) return;
-
-                            // Calculate probability from price
-                            const probability = Math.min(95, (1 / ltp) * 100);
-                            
-                            // Add pattern bonuses
-                            let bonus = 0;
-                            if (rc.tv && rc.tv > 1000) bonus += 5; // Volume bonus
-                            if (rc.batb && rc.batl) {
-                                const back = rc.batb[0] && rc.batb[0][0];
-                                const lay = rc.batl[0] && rc.batl[0][0];
-                                if (back && lay && (lay - back) < 0.02) bonus += 10; // Tight spread
-                            }
-
-                            const finalProbability = Math.min(95, probability + bonus);
-
-                            if (finalProbability > bestProbability) {
-                                bestProbability = finalProbability;
-                                bestRunner = {
-                                    name: runner.name,
-                                    odds: ltp.toFixed(2),
-                                    probability: finalProbability,
-                                    patterns: this.detectPatterns(rc)
-                                };
-                            }
-                        });
-                    }
-
-                    if (bestRunner) {
-                        const raceData = {
-                            marketId: mc.id,
-                            venue: def.venue || 'Unknown Course',
-                            raceName: def.name,
-                            startTime: new Date(def.marketTime),
-                            runnerCount: def.runners.filter(r => r.status === 'ACTIVE').length,
-                            predictedWinner: bestRunner,
-                            lastUpdate: Date.now()
-                        };
-
-                        this.races.set(mc.id, raceData);
-                    }
-                });
-            }
-
-            processBackendMarkets(markets) {
-                if (!Array.isArray(markets)) {
-                    console.log('Markets data is not an array:', markets);
-                    return;
-                }
-
-                console.log(`Processing ${markets.length} backend markets`);
+                // Clear existing data
+                this.courses.clear();
 
                 markets.forEach(market => {
-                    if (!market.id) {
-                        console.log('Market missing ID:', market);
-                        return;
-                    }
-
-                    console.log('Processing market:', market.venue, market.name);
-
-                    // Extract runners and find best prediction
-                    const runners = market.runners || [];
-                    console.log(`Market ${market.name} has ${runners.length} runners`);
+                    if (!this.isUKIrelandRacing(market)) return;
                     
-                    let bestRunner = null;
-                    let bestProbability = 0;
-
-                    runners.forEach(runner => {
-                        const ltp = parseFloat(runner.lastPrice || 0);
-                        console.log(`Runner ${runner.name}: LTP=${ltp}`);
-                        
-                        if (ltp <= 1) return;
-
-                        const probability = Math.min(95, (1 / ltp) * 100);
-                        
-                        if (probability > bestProbability) {
-                            bestProbability = probability;
-                            bestRunner = {
-                                name: runner.name,
-                                odds: ltp.toFixed(2),
-                                probability: probability,
-                                patterns: this.detectBasicPatterns(runner)
-                            };
-                        }
-                    });
-
-                    // Even if no clear winner, show the race with first runner
-                    if (!bestRunner && runners.length > 0) {
-                        const firstRunner = runners[0];
-                        bestRunner = {
-                            name: firstRunner.name || 'Unknown',
-                            odds: parseFloat(firstRunner.lastPrice || 0).toFixed(2) || 'N/A',
-                            probability: 50, // Default
-                            patterns: []
-                        };
+                    const courseName = this.getCourseName(market);
+                    const raceData = this.formatRaceData(market);
+                    
+                    if (!this.courses.has(courseName)) {
+                        this.courses.set(courseName, {
+                            name: courseName,
+                            races: []
+                        });
                     }
-
-                    if (bestRunner) {
-                        const raceData = {
-                            marketId: market.id,
-                            venue: market.venue || 'Unknown Venue',
-                            raceName: market.name || 'Race',
-                            startTime: new Date(market.startTime || Date.now()),
-                            runnerCount: runners.length,
-                            predictedWinner: bestRunner,
-                            lastUpdate: Date.now()
-                        };
-
-                        console.log('Adding race:', raceData.venue, raceData.predictedWinner.name);
-                        this.races.set(market.id, raceData);
-                    }
+                    
+                    this.courses.get(courseName).races.push(raceData);
                 });
+
+                // Sort races within each course by time
+                for (const course of this.courses.values()) {
+                    course.races.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+                }
+
+                this.renderSchedule();
             }
 
-            detectBasicPatterns(runner) {
-                const patterns = [];
-                if (runner.totalVolume && runner.totalVolume > 1000) {
-                    patterns.push('High Volume');
-                }
-                if (runner.lastPrice && runner.lastPrice < 3) {
-                    patterns.push('Favourite');
-                }
-                return patterns;
+            isUKIrelandRacing(market) {
+                const venue = (market.venue || '').toLowerCase();
+                const name = (market.name || '').toLowerCase();
+                
+                // Check for UK/Ireland indicators
+                const ukIrelandIndicators = ['gb', 'ie', 'uk', 'ireland', 'british', 'irish'];
+                const text = venue + ' ' + name;
+                
+                return ukIrelandIndicators.some(indicator => text.includes(indicator)) ||
+                       this.isKnownUKIrelandCourse(venue);
             }
 
-            detectPatterns(runnerChange) {
+            isKnownUKIrelandCourse(venue) {
+                const courses = [
+                    'ascot', 'newmarket', 'cheltenham', 'aintree', 'epsom', 'goodwood',
+                    'york', 'doncaster', 'chester', 'haydock', 'sandown', 'kempton',
+                    'lingfield', 'wolverhampton', 'southwell', 'bath', 'beverley',
+                    'carlisle', 'catterick', 'chepstow', 'exeter', 'fakenham',
+                    'fontwell', 'hamilton', 'hereford', 'hexham', 'huntingdon',
+                    'kelso', 'leicester', 'ludlow', 'market rasen', 'musselburgh',
+                    'newbury', 'newton abbot', 'nottingham', 'perth', 'plumpton',
+                    'pontefract', 'redcar', 'ripon', 'salisbury', 'sedgefield',
+                    'stratford', 'taunton', 'thirsk', 'towcester', 'uttoxeter',
+                    'warwick', 'wetherby', 'wincanton', 'windsor', 'worcester',
+                    'yarmouth', 'curragh', 'leopardstown', 'bellewstown', 'cork',
+                    'down royal', 'fairyhouse', 'galway', 'gowran park', 'killarney',
+                    'limerick', 'listowel', 'naas', 'navan', 'punchestown',
+                    'roscommon', 'sligo', 'thurles', 'tipperary', 'tramore', 'wexford'
+                ];
+                
+                return courses.some(course => venue.includes(course));
+            }
+
+            getCourseName(market) {
+                return market.venue || market.name || 'Unknown Course';
+            }
+
+            formatRaceData(market) {
+                const startTime = new Date(market.startTime || Date.now());
+                const runners = market.runners || [];
+                
+                // Analyze runners for patterns and favorites
+                const analyzedRunners = runners.map(runner => {
+                    const odds = parseFloat(runner.lastPrice) || 0;
+                    const patterns = this.detectPatterns(runner);
+                    
+                    return {
+                        id: runner.id,
+                        name: runner.name || `Runner ${runner.id}`,
+                        odds: odds,
+                        patterns: patterns,
+                        confidence: this.calculateConfidence(runner, patterns)
+                    };
+                }).sort((a, b) => (a.odds || 999) - (b.odds || 999));
+
+                return {
+                    marketId: market.id,
+                    name: market.name || 'Race',
+                    startTime: startTime,
+                    runners: analyzedRunners,
+                    hasPatterns: analyzedRunners.some(r => r.patterns.length > 0)
+                };
+            }
+
+            detectPatterns(runner) {
                 const patterns = [];
                 
-                if (runnerChange.tv && runnerChange.tv > 2000) {
-                    patterns.push('High Volume');
+                // Mock pattern detection based on available data
+                const odds = parseFloat(runner.lastPrice) || 0;
+                const volume = runner.totalVolume || 0;
+                
+                if (odds > 0 && odds < 3) {
+                    patterns.push({ type: 'steam', label: 'Steam Move' });
                 }
                 
-                if (runnerChange.batb && runnerChange.batl) {
-                    const back = runnerChange.batb[0] && runnerChange.batb[0][0];
-                    const lay = runnerChange.batl[0] && runnerChange.batl[0][0];
-                    if (back && lay && (lay - back) < 0.02) {
-                        patterns.push('Steam Move');
+                if (volume > 5000) {
+                    patterns.push({ type: 'volume', label: 'High Volume' });
+                }
+                
+                if (runner.bestBack && runner.bestLay) {
+                    const spread = runner.bestLay - runner.bestBack;
+                    if (spread < 0.05) {
+                        patterns.push({ type: 'pressure', label: 'Back Pressure' });
                     }
                 }
-
+                
                 return patterns;
             }
 
+            calculateConfidence(runner, patterns) {
+                let confidence = 50; // Base confidence
+                
+                const odds = parseFloat(runner.lastPrice) || 0;
+                if (odds > 0) {
+                    confidence += Math.min(30, (1 / odds) * 50);
+                }
+                
+                confidence += patterns.length * 10;
+                
+                return Math.min(95, Math.round(confidence));
+            }
 
             updateConnectionStatus(connected) {
-                const statusDot = document.getElementById('statusDot');
-                const statusText = document.getElementById('statusText');
+                const statusEl = document.getElementById('connectionStatus');
+                const textEl = document.getElementById('connectionText');
                 
                 if (connected) {
-                    statusDot.classList.add('connected');
-                    statusText.textContent = 'Connected';
+                    statusEl.className = 'connection-status connected';
+                    textEl.textContent = 'Connected';
                 } else {
-                    statusDot.classList.remove('connected');
-                    statusText.textContent = 'Disconnected';
+                    statusEl.className = 'connection-status disconnected';
+                    textEl.textContent = 'Disconnected';
                 }
             }
 
@@ -551,104 +651,157 @@
                 }
             }
 
-            updateUI() {
-                const races = Array.from(this.races.values())
-                    .filter(race => this.isRecentRace(race))
-                    .sort((a, b) => a.startTime - b.startTime);
+            renderSchedule() {
+                const container = document.getElementById('racingContainer');
                 
-                // Update stats
-                document.getElementById('totalRaces').textContent = races.length;
-                
-                const predictedWinners = races.filter(race => 
-                    race.predictedWinner && race.predictedWinner.probability > 30
-                );
-                document.getElementById('predictedWinners').textContent = predictedWinners.length;
-                
-                const strongPatterns = races.reduce((count, race) => {
-                    return count + (race.predictedWinner?.patterns?.length || 0);
-                }, 0);
-                document.getElementById('strongPatterns').textContent = strongPatterns;
-                
-                const avgConfidence = races.length > 0 
-                    ? Math.round(races.reduce((sum, race) => 
-                        sum + (race.predictedWinner?.probability || 0), 0) / races.length)
-                    : 0;
-                document.getElementById('avgConfidence').textContent = avgConfidence + '%';
-                
-                // Render races
-                this.renderRaces(races);
-            }
-
-            isRecentRace(race) {
-                const now = new Date();
-                const raceTime = new Date(race.startTime);
-                const hoursDiff = (raceTime - now) / (1000 * 60 * 60);
-                
-                // Show races from 2 hours ago to 6 hours ahead
-                return hoursDiff > -2 && hoursDiff < 6;
-            }
-
-            renderRaces(races) {
-                const container = document.getElementById('racesContainer');
-                
-                if (races.length === 0) {
-                    container.innerHTML = '<div class="no-data">No UK/Ireland racing data available</div>';
+                if (this.courses.size === 0) {
+                    container.innerHTML = `
+                        <div class="no-racing">
+                            <h3>No UK/Ireland racing found</h3>
+                            <p>Check back tomorrow for the next racing schedule</p>
+                        </div>
+                    `;
                     return;
                 }
 
-                const html = races.map(race => this.renderRaceCard(race)).join('');
-                container.innerHTML = html;
+                const coursesHtml = Array.from(this.courses.values())
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(course => this.renderCourseCard(course))
+                    .join('');
+
+                container.innerHTML = `<div class="courses-grid">${coursesHtml}</div>`;
+                
+                // Add event listeners
+                this.addEventListeners();
             }
 
-            renderRaceCard(race) {
-                const startTime = race.startTime.toLocaleTimeString('en-GB', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+            renderCourseCard(course) {
+                const totalPatterns = course.races.reduce((sum, race) => 
+                    sum + race.runners.filter(r => r.patterns.length > 0).length, 0
+                );
 
-                const now = new Date();
-                const minutesToRace = Math.max(0, Math.round((race.startTime - now) / (1000 * 60)));
-                
-                const winner = race.predictedWinner;
-                const confidenceClass = winner.probability > 70 ? 'high' : 
-                                      winner.probability > 40 ? 'medium' : 'low';
+                const racesHtml = course.races.map(race => {
+                    const timeStr = race.startTime.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    const now = new Date();
+                    const minutesToRace = Math.round((race.startTime - now) / (1000 * 60));
+                    const timeToRace = minutesToRace > 0 ? `${minutesToRace}m` : 'Started';
+                    const isRacingSoon = minutesToRace > 0 && minutesToRace <= 15;
 
-                const patterns = winner.patterns && winner.patterns.length > 0 
-                    ? winner.patterns.join(', ') 
-                    : 'Standard Analysis';
-
-                return `
-                    <div class="race-card">
-                        <div class="race-header">
-                            <div class="race-title">${race.venue}</div>
-                            <div class="race-info">
-                                <span>${startTime}</span>
-                                <span>${minutesToRace}m to go</span>
+                    return `
+                        <div class="race-item" data-race-id="${race.marketId}">
+                            <div>
+                                <div class="race-time">${timeStr}</div>
+                                <div class="race-name">${race.name}</div>
+                            </div>
+                            <div class="race-status">
+                                <span class="runners-count">${race.runners.length} runners</span>
+                                ${race.hasPatterns ? '<span class="pattern-indicator">PATTERNS</span>' : ''}
+                                <span class="time-to-race ${isRacingSoon ? 'soon' : ''}">${timeToRace}</span>
                             </div>
                         </div>
-                        <div class="runners-list">
-                            <div class="runner predicted-winner">
-                                <div>
-                                    <div class="runner-name">${winner.name}</div>
-                                    <div style="font-size: 0.8rem; color: #a0a0a0;">${patterns}</div>
-                                </div>
-                                <div class="runner-details">
-                                    <div class="odds">${winner.odds}</div>
-                                    <div class="confidence ${confidenceClass}">${Math.round(winner.probability)}%</div>
-                                </div>
+                        <div class="race-details" id="details-${race.marketId}">
+                            <div class="details-header">
+                                ${race.name} - ${timeStr}
                             </div>
-                            <div style="margin-top: 0.5rem; font-size: 0.8rem; color: #a0a0a0; text-align: center;">
-                                ${race.runnerCount} runners
+                            <div class="horses-list">
+                                ${this.renderHorses(race.runners)}
                             </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="course-card">
+                        <div class="course-header">
+                            <div class="course-name">${course.name}</div>
+                            <div class="course-info">
+                                <span>${course.races.length} races today</span>
+                                ${totalPatterns > 0 ? `<span>${totalPatterns} patterns detected</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="race-list">
+                            ${racesHtml}
                         </div>
                     </div>
                 `;
             }
+
+            renderHorses(runners) {
+                return runners.map(horse => {
+                    const patternClass = horse.patterns.length > 2 ? 'strong-pattern' : 
+                                       horse.patterns.length > 0 ? 'pattern-detected' : '';
+                    
+                    const patternsHtml = horse.patterns.map(pattern => 
+                        `<span class="pattern-badge pattern-${pattern.type}">${pattern.label}</span>`
+                    ).join('');
+
+                    const odds = horse.odds > 0 ? horse.odds.toFixed(2) : 'N/A';
+
+                    return `
+                        <div class="horse-item ${patternClass}">
+                            <div class="horse-info">
+                                <div class="horse-name">${horse.name}</div>
+                                <div class="horse-patterns">${patternsHtml}</div>
+                            </div>
+                            <div class="horse-stats">
+                                <div class="horse-odds">${odds}</div>
+                                <div class="confidence-score">${horse.confidence}% confidence</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            addEventListeners() {
+                // Add click handlers for race items
+                document.querySelectorAll('.race-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const raceId = item.dataset.raceId;
+                        this.toggleRaceDetails(raceId, item);
+                    });
+                });
+            }
+
+            toggleRaceDetails(raceId, raceItem) {
+                const detailsEl = document.getElementById(`details-${raceId}`);
+                
+                // Close other open details
+                document.querySelectorAll('.race-details.open').forEach(el => {
+                    if (el.id !== `details-${raceId}`) {
+                        el.classList.remove('open');
+                    }
+                });
+                
+                document.querySelectorAll('.race-item.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                // Toggle current details
+                if (detailsEl.classList.contains('open')) {
+                    detailsEl.classList.remove('open');
+                    raceItem.classList.remove('selected');
+                } else {
+                    detailsEl.classList.add('open');
+                    raceItem.classList.add('selected');
+                }
+            }
+
+            updateRaceTimes() {
+                // Update time-to-race displays
+                document.querySelectorAll('.time-to-race').forEach(el => {
+                    // This would need race start time data to update properly
+                    // Implementation depends on how race data is stored
+                });
+            }
         }
 
-        // Initialize the racing predictor
+        // Initialize the racing schedule
         document.addEventListener('DOMContentLoaded', () => {
-            new RacingPredictor();
+            new DailyRacingSchedule();
         });
     </script>
 </body>
