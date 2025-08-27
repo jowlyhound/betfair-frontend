@@ -419,6 +419,12 @@
             color: #666;
             margin-top: 2px;
         }
+
+        .live-price {
+            color: #059669;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -506,7 +512,7 @@
             
             async fetchRacingData() {
                 try {
-                    const response = await fetch('http://localhost:11006/api/races');
+                    const response = await fetch('http://localhost:11007/api/races');
                     if (response.ok) {
                         const data = await response.json();
                         this.processRacingData(data.races);
@@ -577,15 +583,16 @@
                         raceElement.innerHTML = `
                             <div class="race-time ${hasStrongSignals ? 'strong-signals' : ''}">${timeStr}${patternInfo}</div>
                             <div class="race-info" style="font-size: 0.8em; color: #666; margin-top: 2px;">
-                                ${race.name} • ${race.patterns} pattern${race.patterns !== 1 ? 's' : ''}
+                                ${race.name || 'Race'} • ${race.patterns || 0} pattern${(race.patterns || 0) !== 1 ? 's' : ''}
                             </div>
                             <div class="runners-list" style="display: none;">
                                 ${race.runners.map(runner => {
                                     const isHighlighted = runner.pattern && runner.pattern.highlight;
+                                    const priceText = runner.lastPrice ? ` <span class="live-price">@ ${runner.lastPrice}</span>` : '';
                                     const patternText = runner.pattern ? 
                                         ` <span class="pattern-badge ${runner.pattern.type.toLowerCase()}">${runner.pattern.type} (${(runner.pattern.confidence * 100).toFixed(0)}%)</span>` : '';
                                     
-                                    return `<div class="runner ${isHighlighted ? 'highlighted-runner' : ''}">${runner.name}${patternText}</div>`;
+                                    return `<div class="runner ${isHighlighted ? 'highlighted-runner' : ''}">${runner.name}${priceText}${patternText}</div>`;
                                 }).join('')}
                             </div>
                         `;
