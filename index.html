@@ -423,17 +423,113 @@
             }
 
             connect() {
-                if (this.ws && this.ws.readyState === WebSocket.OPEN) return;
-
-                const wsUrl = this.wsUrls[this.reconnectAttempts % this.wsUrls.length];
-                console.log(`Connecting to: ${wsUrl}`);
+                // Use HTTP API instead of WebSocket to avoid Betfair connection limits
+                this.connectViaAPI();
+            }
+            
+            connectViaAPI() {
+                console.log('Connecting via HTTP API...');
+                this.updateConnectionStatus(true);
+                this.fetchRacingData();
                 
+                // Poll for updates every 30 seconds
+                if (this.apiInterval) clearInterval(this.apiInterval);
+                this.apiInterval = setInterval(() => {
+                    this.fetchRacingData();
+                }, 30000);
+            }
+            
+            async fetchRacingData() {
                 try {
-                    this.ws = new WebSocket(wsUrl);
-                    this.setupWebSocket();
+                    const response = await fetch('http://localhost:11002/api/races');
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.processRacingData(data.races);
+                    } else {
+                        console.error('API error:', response.status);
+                        this.updateConnectionStatus(false);
+                    }
                 } catch (error) {
-                    console.error('WebSocket connection error:', error);
-                    this.handleReconnect();
+                    console.error('API fetch error:', error);
+                    this.updateConnectionStatus(false);
+                }
+            }
+            
+            processRacingData(races) {
+                if (!Array.isArray(races)) return;
+                
+                console.log(`Processing ${races.length} races from API`);
+                
+                // Transform API data to match expected format
+                const transformedData = races.map(race => ({
+                    venue: race.venue,
+                    startTime: race.startTime,
+                    runners: race.runners
+                }));
+                
+                // Group by venue and display
+                this.displayRacesByVenue(transformedData);
+            }
+            
+            displayRacesByVenue(races) {
+                const container = document.getElementById('raceContainer');
+                container.innerHTML = '';
+                
+                // Group races by venue
+                const racesByVenue = {};
+                races.forEach(race => {
+                    if (!racesByVenue[race.venue]) {
+                        racesByVenue[race.venue] = [];
+                    }
+                    racesByVenue[race.venue].push(race);
+                });
+                
+                // Display each venue
+                Object.keys(racesByVenue).forEach(venue => {
+                    const venueRaces = racesByVenue[venue];
+                    const venueElement = document.createElement('div');
+                    venueElement.className = 'venue-section';
+                    
+                    const venueHeader = document.createElement('h2');
+                    venueHeader.textContent = venue;
+                    venueHeader.className = 'venue-title';
+                    venueElement.appendChild(venueHeader);
+                    
+                    venueRaces.forEach((race, index) => {
+                        const raceElement = document.createElement('div');
+                        raceElement.className = 'race-item';
+                        
+                        const startTime = new Date(race.startTime);
+                        const timeStr = startTime.toLocaleTimeString('en-GB', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false 
+                        });
+                        
+                        raceElement.innerHTML = `
+                            <div class="race-time">${timeStr}</div>
+                            <div class="runners-list" style="display: none;">
+                                ${race.runners.map(runner => 
+                                    `<div class="runner">${runner.name}</div>`
+                                ).join('')}
+                            </div>
+                        `;
+                        
+                        // Click to expand runners
+                        raceElement.addEventListener('click', () => {
+                            const runnersList = raceElement.querySelector('.runners-list');
+                            runnersList.style.display = 
+                                runnersList.style.display === 'none' ? 'block' : 'none';
+                        });
+                        
+                        venueElement.appendChild(raceElement);
+                    });
+                    
+                    container.appendChild(venueElement);
+                });
+                
+                if (Object.keys(racesByVenue).length === 0) {
+                    container.innerHTML = '<div class="no-races">No races available</div>';
                 }
             }
 
