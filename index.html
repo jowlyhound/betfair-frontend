@@ -354,6 +354,71 @@
                 grid-template-columns: 1fr;
             }
         }
+        /* Pattern Analysis Styles */
+        .strong-signals {
+            color: #dc2626 !important;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .highlighted-runner {
+            background: linear-gradient(90deg, #fef3c7, #fbbf24);
+            color: #92400e;
+            font-weight: bold;
+            border-left: 4px solid #f59e0b;
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+        }
+
+        .pattern-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 12px;
+            margin-left: 8px;
+            font-weight: normal;
+        }
+
+        .pattern-badge.steam_move {
+            background: #dc2626;
+            color: white;
+        }
+
+        .pattern-badge.volume_spike {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .pattern-badge.back_lay_imbalance {
+            background: #059669;
+            color: white;
+        }
+
+        .pattern-badge.market_confidence {
+            background: #2563eb;
+            color: white;
+        }
+
+        .pattern-badge.smart_money {
+            background: #ea580c;
+            color: white;
+        }
+
+        .pattern-badge.whale_activity {
+            background: #be185d;
+            color: white;
+        }
+
+        .race-info {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -441,7 +506,7 @@
             
             async fetchRacingData() {
                 try {
-                    const response = await fetch('http://localhost:11004/api/races');
+                    const response = await fetch('http://localhost:11005/api/races');
                     if (response.ok) {
                         const data = await response.json();
                         this.processRacingData(data.races);
@@ -506,12 +571,22 @@
                             hour12: false 
                         });
                         
+                        const hasStrongSignals = race.strongSignals > 0;
+                        const patternInfo = hasStrongSignals ? ` 🚨 ${race.strongSignals} Strong Signal${race.strongSignals > 1 ? 's' : ''}` : '';
+                        
                         raceElement.innerHTML = `
-                            <div class="race-time">${timeStr}</div>
+                            <div class="race-time ${hasStrongSignals ? 'strong-signals' : ''}">${timeStr}${patternInfo}</div>
+                            <div class="race-info" style="font-size: 0.8em; color: #666; margin-top: 2px;">
+                                ${race.name} • ${race.patterns} pattern${race.patterns !== 1 ? 's' : ''}
+                            </div>
                             <div class="runners-list" style="display: none;">
-                                ${race.runners.map(runner => 
-                                    `<div class="runner">${runner.name}</div>`
-                                ).join('')}
+                                ${race.runners.map(runner => {
+                                    const isHighlighted = runner.pattern && runner.pattern.highlight;
+                                    const patternText = runner.pattern ? 
+                                        ` <span class="pattern-badge ${runner.pattern.type.toLowerCase()}">${runner.pattern.type} (${(runner.pattern.confidence * 100).toFixed(0)}%)</span>` : '';
+                                    
+                                    return `<div class="runner ${isHighlighted ? 'highlighted-runner' : ''}">${runner.name}${patternText}</div>`;
+                                }).join('')}
                             </div>
                         `;
                         
