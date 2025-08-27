@@ -480,6 +480,11 @@
             processMessage(data) {
                 console.log('Processing message:', data.type);
 
+                // Handle Betfair market change messages that don't have a type field
+                if (!data.type && (data.op === 'mcm' || data.mc)) {
+                    data.type = 'mcm';
+                }
+
                 switch (data.type) {
                     case 'market_data':
                         this.processMarketData(data.markets);
@@ -489,6 +494,17 @@
                         break;
                     case 'welcome':
                         console.log('Backend welcome');
+                        break;
+                    case 'bf_status':
+                        console.log('Betfair status:', data.message);
+                        this.updateConnectionStatus(true, data.message);
+                        break;
+                    case 'bf_status_error':
+                        console.log('Betfair error:', data.error);
+                        this.updateConnectionStatus(false, data.error);
+                        break;
+                    case 'status':
+                        console.log('Backend status:', data.message);
                         break;
                     default:
                         console.log('Unknown message type:', data.type);
