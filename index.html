@@ -506,7 +506,7 @@
             
             async fetchRacingData() {
                 try {
-                    const response = await fetch('http://localhost:11005/api/races');
+                    const response = await fetch('http://localhost:11006/api/races');
                     if (response.ok) {
                         const data = await response.json();
                         this.processRacingData(data.races);
